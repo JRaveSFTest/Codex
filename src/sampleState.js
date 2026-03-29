@@ -2,9 +2,10 @@
 
 function createSampleState(workspaceName) {
   return {
-    version: 1,
+    version: 2,
     workspaceName,
     generatedAt: "2026-03-29T00:00:00.000Z",
+    updatedAt: "2026-03-29T00:00:00.000Z",
     taskArtifacts: {
       id: "task-main",
       title: "Trusted Autonomous Task Completion",
@@ -87,7 +88,8 @@ function createSampleState(workspaceName) {
       documents: {
         spec: ".codex-research/spec.md",
         plan: ".codex-research/plan.md",
-        statusLog: ".codex-research/status.md"
+        statusLog: ".codex-research/status.md",
+        context: ".codex-research/workspace-context.md"
       }
     },
     verificationGates: [
@@ -308,7 +310,47 @@ function createSampleState(workspaceName) {
       "Keep plan, validation, and status files visible in the IDE instead of burying them in chat history.",
       "Expose child-agent ownership and spend before subagents become fully autonomous in the IDE.",
       "Treat approval prompts as a UX surface to optimize, not only a safety surface to enforce."
-    ]
+    ],
+    statusNotes: [
+      {
+        id: "note-seed",
+        timestamp: "2026-03-29T00:00:00.000Z",
+        author: "system",
+        kind: "seed",
+        text: "Initialized Codex research workspace."
+      },
+      {
+        id: "note-phase2",
+        timestamp: "2026-03-29T00:10:00.000Z",
+        author: "system",
+        kind: "progress",
+        text: "Phase 2 prototype work is focused on durable task bundles and visible subagent runs."
+      }
+    ],
+    workspaceSnapshot: {
+      capturedAt: "2026-03-29T00:00:00.000Z",
+      activeEditor: "src/extension.js",
+      selection: "13:1-13:28",
+      visibleEditors: [
+        "src/extension.js",
+        "src/store.js",
+        "src/dashboard.js"
+      ],
+      agentFiles: [],
+      repoSample: [
+        "src/extension.js",
+        "src/store.js",
+        "src/dashboard.js",
+        "docs/research/benchmark-suite.md"
+      ],
+      researchArtifacts: [
+        ".codex-research/spec.md",
+        ".codex-research/plan.md",
+        ".codex-research/status.md"
+      ],
+      generatedSkillDraft: true,
+      gitDetected: false
+    }
   };
 }
 

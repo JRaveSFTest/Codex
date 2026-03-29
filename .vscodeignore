@@ -1,0 +1,10 @@
+.codex-research/**
+.vscode/**
+docs/**
+generated-skill/**
+reports/**
+scripts/**
+test/**
+.gitignore
+*.vsix
+dist/**

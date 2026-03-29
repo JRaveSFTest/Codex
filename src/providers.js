@@ -1,16 +1,23 @@
 "use strict";
 
 const vscode = require("vscode");
-const { summarizeState } = require("./domain");
+const { summarizeState, deriveContextStrategy, deriveApprovalSummary, derivePreflightBrief } = require("./domain");
 
 function iconForStatus(status) {
   switch (status) {
     case "completed":
+    case "ready":
       return new vscode.ThemeIcon("pass");
     case "blocked":
+    case "blocker":
+    case "high":
       return new vscode.ThemeIcon("warning");
     case "in_progress":
       return new vscode.ThemeIcon("sync");
+    case "needs_review":
+    case "pending":
+    case "medium":
+      return new vscode.ThemeIcon("pulse");
     default:
       return new vscode.ThemeIcon("circle-outline");
   }
@@ -49,8 +56,13 @@ class TaskArtifactsProvider extends BaseProvider {
         [
           new NodeItem(`Objective: ${state.taskArtifacts.objective}`, vscode.TreeItemCollapsibleState.None),
           new NodeItem(`Completion: ${summary.milestoneCompletionRate}%`, vscode.TreeItemCollapsibleState.None),
+          new NodeItem(`Updated: ${state.updatedAt ?? state.generatedAt}`, vscode.TreeItemCollapsibleState.None),
           new NodeItem(
             `Continuity: ${state.taskArtifacts.continuity.mode} / ${state.taskArtifacts.continuity.threadId}`,
+            vscode.TreeItemCollapsibleState.None
+          ),
+          new NodeItem(
+            `Artifacts: ${Object.values(state.taskArtifacts.documents).join(", ")}`,
             vscode.TreeItemCollapsibleState.None
           ),
           new NodeItem(
@@ -120,25 +132,52 @@ class ContextSourcesProvider extends BaseProvider {
     }
 
     const state = await this.loader();
-    const sorted = [...state.contextSources].sort((left, right) => right.score - left.score);
+    const strategy = deriveContextStrategy(state);
 
-    return sorted.map((source) => {
-      const label = `${source.label} (${source.score})`;
-      const children = [
-        new NodeItem(`Kind: ${source.kind}`, vscode.TreeItemCollapsibleState.None),
-        new NodeItem(`Pinned: ${source.pinned ? "yes" : "no"}`, vscode.TreeItemCollapsibleState.None),
-        new NodeItem(`Why included: ${source.rationale}`, vscode.TreeItemCollapsibleState.None),
-        ...((source.artifacts ?? []).map(
-          (artifact) => new NodeItem(`Artifact: ${artifact}`, vscode.TreeItemCollapsibleState.None)
-        ))
-      ];
-      return new NodeItem(
-        label,
+    return [
+      new NodeItem(
+        `Snapshot: ${state.workspaceSnapshot?.capturedAt ?? "n/a"}`,
         vscode.TreeItemCollapsibleState.Collapsed,
-        new vscode.ThemeIcon(source.pinned ? "pin" : "symbol-key"),
-        children
-      );
-    });
+        new vscode.ThemeIcon("pulse"),
+        [
+          new NodeItem(`Active editor: ${state.workspaceSnapshot?.activeEditor ?? "none"}`, vscode.TreeItemCollapsibleState.None),
+          new NodeItem(`Selection: ${state.workspaceSnapshot?.selection ?? "none"}`, vscode.TreeItemCollapsibleState.None),
+          ...((state.workspaceSnapshot?.visibleEditors ?? []).map(
+            (item) => new NodeItem(`Visible: ${item}`, vscode.TreeItemCollapsibleState.None)
+          ))
+        ]
+      ),
+      new NodeItem(
+        `Strategy (${strategy.primaryCount} primary / ${strategy.staleCount} stale)`,
+        vscode.TreeItemCollapsibleState.Expanded,
+        new vscode.ThemeIcon("graph"),
+        [
+          new NodeItem(`Summary: ${strategy.summary}`, vscode.TreeItemCollapsibleState.None),
+          ...(strategy.blindSpots.length > 0
+            ? strategy.blindSpots.map((item) => new NodeItem(`Gap: ${item}`, vscode.TreeItemCollapsibleState.None))
+            : [new NodeItem("Gap: No immediate context blind spots detected.", vscode.TreeItemCollapsibleState.None)])
+        ]
+      ),
+      ...strategy.rankedSources.map((source) => {
+        const label = `${source.label} (${source.score})`;
+        const children = [
+          new NodeItem(`Kind: ${source.kind}`, vscode.TreeItemCollapsibleState.None),
+          new NodeItem(`Tier: ${source.tier}`, vscode.TreeItemCollapsibleState.None),
+          new NodeItem(`Freshness: ${source.freshness}`, vscode.TreeItemCollapsibleState.None),
+          new NodeItem(`Pinned: ${source.pinned ? "yes" : "no"}`, vscode.TreeItemCollapsibleState.None),
+          new NodeItem(`Why included: ${source.rationale}`, vscode.TreeItemCollapsibleState.None),
+          ...((source.artifacts ?? []).map(
+            (artifact) => new NodeItem(`Artifact: ${artifact}`, vscode.TreeItemCollapsibleState.None)
+          ))
+        ];
+        return new NodeItem(
+          label,
+          vscode.TreeItemCollapsibleState.Collapsed,
+          new vscode.ThemeIcon(source.pinned ? "pin" : "symbol-key"),
+          children
+        );
+      })
+    ];
   }
 }
 
@@ -153,6 +192,8 @@ class ApprovalsProvider extends BaseProvider {
     }
 
     const state = await this.loader();
+    const approvalSummary = deriveApprovalSummary(state);
+    const preflight = derivePreflightBrief(state);
     const gates = state.verificationGates.map((gate) =>
       new NodeItem(
         `${gate.label} (${gate.status})`,
@@ -176,10 +217,54 @@ class ApprovalsProvider extends BaseProvider {
         ]
       )
     );
+    const approvalGroups = approvalSummary.groups
+      .filter((group) => group.count > 0)
+      .map((group) =>
+        new NodeItem(
+          `${group.status} (${group.count})`,
+          vscode.TreeItemCollapsibleState.Collapsed,
+          iconForStatus(group.status),
+          [
+            ...group.scopes.map((scope) => new NodeItem(`Scope: ${scope}`, vscode.TreeItemCollapsibleState.None)),
+            ...group.milestones.map(
+              (milestone) => new NodeItem(`Milestone: ${milestone}`, vscode.TreeItemCollapsibleState.None)
+            )
+          ]
+        )
+      );
 
     return [
+      new NodeItem(
+        `Preflight (${preflight.status})`,
+        vscode.TreeItemCollapsibleState.Expanded,
+        iconForStatus(preflight.status),
+        [
+          new NodeItem(`Risk: ${preflight.riskLevel}`, vscode.TreeItemCollapsibleState.None),
+          new NodeItem(`Current milestone: ${preflight.currentMilestoneTitle}`, vscode.TreeItemCollapsibleState.None),
+          new NodeItem(`Approval friction: ${preflight.approvalFrictionScore}`, vscode.TreeItemCollapsibleState.None),
+          ...preflight.blockers.map((item) => new NodeItem(`Blocker: ${item}`, vscode.TreeItemCollapsibleState.None)),
+          ...preflight.warnings.map((item) => new NodeItem(`Warning: ${item}`, vscode.TreeItemCollapsibleState.None)),
+          ...preflight.nextActions.map((item) => new NodeItem(`Next: ${item}`, vscode.TreeItemCollapsibleState.None))
+        ]
+      ),
+      new NodeItem(
+        "Approval Groups",
+        vscode.TreeItemCollapsibleState.Expanded,
+        new vscode.ThemeIcon("layers"),
+        approvalGroups.length > 0
+          ? approvalGroups
+          : [new NodeItem("No approvals tracked", vscode.TreeItemCollapsibleState.None)]
+      ),
       new NodeItem("Verification Gates", vscode.TreeItemCollapsibleState.Expanded, new vscode.ThemeIcon("shield"), gates),
-      new NodeItem("Approval Queue", vscode.TreeItemCollapsibleState.Expanded, new vscode.ThemeIcon("lock"), approvals)
+      new NodeItem("Approval Queue", vscode.TreeItemCollapsibleState.Expanded, new vscode.ThemeIcon("lock"), approvals),
+      new NodeItem(
+        "Recent Notes",
+        vscode.TreeItemCollapsibleState.Expanded,
+        new vscode.ThemeIcon("note"),
+        (state.statusNotes ?? [])
+          .slice(0, 5)
+          .map((item) => new NodeItem(`${item.kind}: ${item.text}`, vscode.TreeItemCollapsibleState.None))
+      )
     ];
   }
 }

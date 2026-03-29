@@ -5,6 +5,14 @@
   "version": "0.1.0",
   "publisher": "local",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JRaveSFTest/Codex.git"
+  },
+  "bugs": {
+    "url": "https://github.com/JRaveSFTest/Codex/issues"
+  },
+  "homepage": "https://github.com/JRaveSFTest/Codex",
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -12,10 +20,21 @@
     "Other"
   ],
   "activationEvents": [
+    "onStartupFinished",
     "onCommand:codexResearch.openDashboard",
     "onCommand:codexResearch.seedResearchWorkspace",
     "onCommand:codexResearch.exportSnapshot",
     "onCommand:codexResearch.promoteWorkflowToSkill",
+    "onCommand:codexResearch.captureWorkspaceContext",
+    "onCommand:codexResearch.updateMilestoneStatus",
+    "onCommand:codexResearch.updateVerificationGateStatus",
+    "onCommand:codexResearch.updateApprovalStatus",
+    "onCommand:codexResearch.updateSubagentStatus",
+    "onCommand:codexResearch.addStatusNote",
+    "onCommand:codexResearch.openSpec",
+    "onCommand:codexResearch.openPlan",
+    "onCommand:codexResearch.openStatusLog",
+    "onCommand:codexResearch.showDiagnostics",
     "onView:codexResearch.taskArtifacts",
     "onView:codexResearch.subagentRuns",
     "onView:codexResearch.contextSources",
@@ -72,6 +91,46 @@
       {
         "command": "codexResearch.promoteWorkflowToSkill",
         "title": "Codex Research: Promote Workflow To Skill Draft"
+      },
+      {
+        "command": "codexResearch.captureWorkspaceContext",
+        "title": "Codex Research: Refresh Workspace Context"
+      },
+      {
+        "command": "codexResearch.updateMilestoneStatus",
+        "title": "Codex Research: Update Milestone Status"
+      },
+      {
+        "command": "codexResearch.updateVerificationGateStatus",
+        "title": "Codex Research: Update Verification Gate Status"
+      },
+      {
+        "command": "codexResearch.updateApprovalStatus",
+        "title": "Codex Research: Update Approval Status"
+      },
+      {
+        "command": "codexResearch.updateSubagentStatus",
+        "title": "Codex Research: Update Subagent Status"
+      },
+      {
+        "command": "codexResearch.addStatusNote",
+        "title": "Codex Research: Add Status Note"
+      },
+      {
+        "command": "codexResearch.openSpec",
+        "title": "Codex Research: Open Spec"
+      },
+      {
+        "command": "codexResearch.openPlan",
+        "title": "Codex Research: Open Plan"
+      },
+      {
+        "command": "codexResearch.openStatusLog",
+        "title": "Codex Research: Open Status Log"
+      },
+      {
+        "command": "codexResearch.showDiagnostics",
+        "title": "Codex Research: Show Diagnostics"
       }
     ],
     "menus": {
@@ -103,12 +162,59 @@
         {
           "command": "codexResearch.promoteWorkflowToSkill",
           "when": "workspaceFolderCount >= 0"
+        },
+        {
+          "command": "codexResearch.captureWorkspaceContext",
+          "when": "workspaceFolderCount >= 0"
+        },
+        {
+          "command": "codexResearch.updateMilestoneStatus",
+          "when": "workspaceFolderCount >= 0"
+        },
+        {
+          "command": "codexResearch.updateVerificationGateStatus",
+          "when": "workspaceFolderCount >= 0"
+        },
+        {
+          "command": "codexResearch.updateApprovalStatus",
+          "when": "workspaceFolderCount >= 0"
+        },
+        {
+          "command": "codexResearch.updateSubagentStatus",
+          "when": "workspaceFolderCount >= 0"
+        },
+        {
+          "command": "codexResearch.addStatusNote",
+          "when": "workspaceFolderCount >= 0"
+        },
+        {
+          "command": "codexResearch.openSpec",
+          "when": "workspaceFolderCount >= 0"
+        },
+        {
+          "command": "codexResearch.openPlan",
+          "when": "workspaceFolderCount >= 0"
+        },
+        {
+          "command": "codexResearch.openStatusLog",
+          "when": "workspaceFolderCount >= 0"
+        },
+        {
+          "command": "codexResearch.showDiagnostics",
+          "when": "workspaceFolderCount >= 0"
         }
       ]
     }
   },
+  "devDependencies": {
+    "@vscode/vsce": "^3.2.2"
+  },
   "scripts": {
     "test": "node --test",
-    "check": "node --check src/extension.js && node --check src/dashboard.js && node --check src/providers.js && node --check src/store.js && node --check src/domain.js"
+    "check": "node --check src/extension.js && node --check src/dashboard.js && node --check src/providers.js && node --check src/store.js && node --check src/domain.js && node --check src/stateModel.js && node --check src/activationModel.js",
+    "package:vsix": "node scripts/package-vsix.cjs",
+    "install:vsix": "node scripts/install-vsix.cjs",
+    "uninstall:vsix": "node scripts/uninstall-vsix.cjs",
+    "reinstall:vsix": "node scripts/reinstall-vsix.cjs"
   }
 }

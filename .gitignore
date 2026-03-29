@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Local packaging artifacts
+dist/
+*.vsix
+.vsce/
+
+# VS Code extension test/runtime temp data
+.vscode-test/
+
+# Generated research/runtime outputs
+.codex-research/
+generated-skill/
+reports/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
