@@ -27,14 +27,17 @@ This is a **VS Code extension**, not a PowerShell or terminal tool.
 - `Codex Research: Seed Research Workspace`
 - `Codex Research: Refresh Workspace Context`
 - `Codex Research: Export Snapshot`
-- `Codex Research: Promote Workflow To Skill Draft`
+- `Codex Research: Generate Workflow Pack`
 - `Codex Research: Update Milestone Status`
 - `Codex Research: Update Verification Gate Status`
+- `Codex Research: Review Verification Gate`
 - `Codex Research: Update Approval Status`
+- `Codex Research: Review Approval`
 - `Codex Research: Update Subagent Status`
 - `Codex Research: Add Status Note`
 - `Codex Research: Open Spec`
 - `Codex Research: Open Plan`
+- `Codex Research: Open Implementation Runbook`
 - `Codex Research: Open Status Log`
 - `Codex Research: Show Diagnostics`
 - `Codex Research: Refresh Views`
@@ -86,7 +89,11 @@ From the dashboard you can:
 - seed the workspace bundle
 - refresh workspace context
 - open spec, plan, status log, and workspace context docs
+- open the implementation runbook used for continuation and handoff
 - update milestones, verification gates, approvals, and subagent status
+- review verification gates with evidence so checks are actually finishable
+- review approvals with evidence and a recorded resolution
+- generate the final reusable workflow pack for sharing or reuse
 - add status notes
 - open diagnostics
 
@@ -97,14 +104,16 @@ Seeding the workspace creates or maintains:
 - `.codex-research/spec.md`
 - `.codex-research/plan.md`
 - `.codex-research/status.md`
-- `.codex-research/workspace-context.md`
 - `.codex-research/implement.md`
+- `.codex-research/workspace-context.md`
 - `.codex-research/state.json`
 
 Additional outputs:
 
 - `reports/codex-research-snapshot.md`
 - `generated-skill/SKILL.md`
+- `generated-skill/README.md`
+- `generated-skill/workflow-pack.json`
 
 ## Packaging Notes
 

@@ -15,9 +15,27 @@ function normalizeState(inputState) {
     plan: ".codex-research/plan.md",
     statusLog: ".codex-research/status.md",
     context: ".codex-research/workspace-context.md",
+    implement: ".codex-research/implement.md",
     ...(state.taskArtifacts.documents ?? {})
   };
   state.statusNotes = Array.isArray(state.statusNotes) ? state.statusNotes : [];
+  state.verificationGates = Array.isArray(state.verificationGates)
+    ? state.verificationGates.map((gate) => ({
+        lastReviewedAt: null,
+        lastReviewedBy: null,
+        evidence: "",
+        ...(gate ?? {})
+      }))
+    : [];
+  state.approvals = Array.isArray(state.approvals)
+    ? state.approvals.map((approval) => ({
+        lastReviewedAt: null,
+        lastReviewedBy: null,
+        evidence: "",
+        resolution: null,
+        ...(approval ?? {})
+      }))
+    : [];
   state.workspaceSnapshot = {
     capturedAt: generatedAt,
     activeEditor: null,
@@ -71,8 +89,61 @@ function setVerificationGateStatus(inputState, gateId, status) {
   return updateItemStatus(inputState, gateId, status, (state) => state.verificationGates, "status");
 }
 
+function recordVerificationReview(inputState, gateId, review) {
+  const state = normalizeState(inputState);
+  const gate = state.verificationGates.find((item) => item.id === gateId);
+  if (!gate) {
+    throw new Error(`Unknown verification gate: ${gateId}`);
+  }
+
+  const status = String(review?.status ?? "").trim();
+  const evidence = String(review?.evidence ?? "").trim();
+  validateStatus(status);
+
+  if (!evidence) {
+    throw new Error("Verification evidence cannot be empty.");
+  }
+
+  const reviewedAt = new Date().toISOString();
+  gate.status = status;
+  gate.evidence = evidence;
+  gate.lastReviewedAt = reviewedAt;
+  gate.lastReviewedBy = String(review?.reviewer ?? "user");
+  state.taskArtifacts.status = deriveTaskStatus(state);
+  state.updatedAt = reviewedAt;
+  return state;
+}
+
 function setApprovalStatus(inputState, approvalId, status) {
   return updateItemStatus(inputState, approvalId, status, (state) => state.approvals, "status");
+}
+
+function recordApprovalReview(inputState, approvalId, review) {
+  const state = normalizeState(inputState);
+  const approval = state.approvals.find((item) => item.id === approvalId);
+  if (!approval) {
+    throw new Error(`Unknown approval: ${approvalId}`);
+  }
+
+  const status = String(review?.status ?? "").trim();
+  const evidence = String(review?.evidence ?? "").trim();
+  validateStatus(status);
+
+  if (!evidence) {
+    throw new Error("Approval evidence cannot be empty.");
+  }
+
+  const reviewedAt = new Date().toISOString();
+  approval.status = status;
+  approval.evidence = evidence;
+  approval.lastReviewedAt = reviewedAt;
+  approval.lastReviewedBy = String(review?.reviewer ?? "user");
+  approval.resolution =
+    String(review?.resolution ?? "").trim() ||
+    (status === "completed" ? "approved" : status === "blocked" ? "blocked" : "pending");
+  state.taskArtifacts.status = deriveTaskStatus(state);
+  state.updatedAt = reviewedAt;
+  return state;
 }
 
 function setSubagentStatus(inputState, agentId, status) {
@@ -226,7 +297,9 @@ module.exports = {
   appendStatusNote,
   setMilestoneStatus,
   setVerificationGateStatus,
+  recordVerificationReview,
   setApprovalStatus,
+  recordApprovalReview,
   setSubagentStatus,
   applyWorkspaceSnapshot,
   buildContextSources,

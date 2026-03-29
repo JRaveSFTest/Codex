@@ -28,11 +28,14 @@
     "onCommand:codexResearch.captureWorkspaceContext",
     "onCommand:codexResearch.updateMilestoneStatus",
     "onCommand:codexResearch.updateVerificationGateStatus",
+    "onCommand:codexResearch.reviewVerificationGate",
     "onCommand:codexResearch.updateApprovalStatus",
+    "onCommand:codexResearch.reviewApproval",
     "onCommand:codexResearch.updateSubagentStatus",
     "onCommand:codexResearch.addStatusNote",
     "onCommand:codexResearch.openSpec",
     "onCommand:codexResearch.openPlan",
+    "onCommand:codexResearch.openImplementationRunbook",
     "onCommand:codexResearch.openStatusLog",
     "onCommand:codexResearch.showDiagnostics",
     "onView:codexResearch.taskArtifacts",
@@ -90,7 +93,7 @@
       },
       {
         "command": "codexResearch.promoteWorkflowToSkill",
-        "title": "Codex Research: Promote Workflow To Skill Draft"
+        "title": "Codex Research: Generate Workflow Pack"
       },
       {
         "command": "codexResearch.captureWorkspaceContext",
@@ -105,8 +108,16 @@
         "title": "Codex Research: Update Verification Gate Status"
       },
       {
+        "command": "codexResearch.reviewVerificationGate",
+        "title": "Codex Research: Review Verification Gate"
+      },
+      {
         "command": "codexResearch.updateApprovalStatus",
         "title": "Codex Research: Update Approval Status"
+      },
+      {
+        "command": "codexResearch.reviewApproval",
+        "title": "Codex Research: Review Approval"
       },
       {
         "command": "codexResearch.updateSubagentStatus",
@@ -123,6 +134,10 @@
       {
         "command": "codexResearch.openPlan",
         "title": "Codex Research: Open Plan"
+      },
+      {
+        "command": "codexResearch.openImplementationRunbook",
+        "title": "Codex Research: Open Implementation Runbook"
       },
       {
         "command": "codexResearch.openStatusLog",
@@ -176,7 +191,15 @@
           "when": "workspaceFolderCount >= 0"
         },
         {
+          "command": "codexResearch.reviewVerificationGate",
+          "when": "workspaceFolderCount >= 0"
+        },
+        {
           "command": "codexResearch.updateApprovalStatus",
+          "when": "workspaceFolderCount >= 0"
+        },
+        {
+          "command": "codexResearch.reviewApproval",
           "when": "workspaceFolderCount >= 0"
         },
         {
@@ -193,6 +216,10 @@
         },
         {
           "command": "codexResearch.openPlan",
+          "when": "workspaceFolderCount >= 0"
+        },
+        {
+          "command": "codexResearch.openImplementationRunbook",
           "when": "workspaceFolderCount >= 0"
         },
         {

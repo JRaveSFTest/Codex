@@ -167,10 +167,53 @@ function deriveApprovalSummary(state) {
   };
 }
 
+function deriveVerificationSummary(state) {
+  const milestonesById = new Map((state.taskArtifacts.milestones ?? []).map((item) => [item.id, item.title]));
+  const currentMilestone =
+    state.taskArtifacts.milestones.find((item) => item.status === "in_progress") ??
+    state.taskArtifacts.milestones.find((item) => item.status === "pending") ??
+    null;
+  const currentMilestoneId = currentMilestone?.id ?? null;
+  const gates = (state.verificationGates ?? []).map((gate) => ({
+    ...gate,
+    milestoneTitle: milestonesById.get(gate.milestoneId) ?? "Unmapped milestone"
+  }));
+  const openGates = gates
+    .filter((gate) => gate.status !== "completed")
+    .sort((left, right) => {
+      const leftPriority = left.milestoneId === currentMilestoneId ? 1 : 0;
+      const rightPriority = right.milestoneId === currentMilestoneId ? 1 : 0;
+      return rightPriority - leftPriority || right.label.localeCompare(left.label);
+    });
+  const completedGates = gates.filter((gate) => gate.status === "completed");
+  const missingEvidenceGates = completedGates.filter((gate) => !String(gate.evidence ?? "").trim());
+  const nextGate = openGates[0] ?? null;
+
+  return {
+    totalCount: gates.length,
+    openCount: openGates.length,
+    completedCount: completedGates.length,
+    reviewedCount: completedGates.filter((gate) => Boolean(gate.lastReviewedAt)).length,
+    missingEvidenceCount: missingEvidenceGates.length,
+    currentMilestoneOpenCount: openGates.filter((gate) => gate.milestoneId === currentMilestoneId).length,
+    nextGate,
+    openGates,
+    missingEvidenceGates,
+    summary:
+      openGates.length === 0
+        ? "All verification gates are complete."
+        : `Focus on ${nextGate?.label ?? "the next verification gate"} before advancing the current milestone.`
+  };
+}
+
 function derivePreflightBrief(state, options = {}) {
   const now = options.now ?? new Date();
   const context = deriveContextStrategy(state, { now });
   const approvals = deriveApprovalSummary(state);
+  const verification = deriveVerificationSummary(state);
+  const allMilestonesCompleted =
+    state.taskArtifacts.milestones.length > 0 &&
+    state.taskArtifacts.milestones.every((item) => item.status === "completed");
   const currentMilestone =
     state.taskArtifacts.milestones.find((item) => item.status === "in_progress") ??
     state.taskArtifacts.milestones.find((item) => item.status === "pending") ??
@@ -210,11 +253,22 @@ function derivePreflightBrief(state, options = {}) {
     nextActions.push(`Batch pending approvals: ${approvals.pendingScopes.join(", ")}`);
   }
 
-  if (!currentMilestone) {
+  if (!currentMilestone && !allMilestonesCompleted) {
     warnings.push("No active milestone is selected, so progress tracking is weak.");
   }
+  if (verification.missingEvidenceCount > 0) {
+    warnings.push(
+      `${verification.missingEvidenceCount} completed verification gate${
+        verification.missingEvidenceCount === 1 ? "" : "s"
+      } are missing evidence.`
+    );
+  }
 
-  const riskScore = approvals.frictionScore + incompleteCurrentGates.length * 2 + context.staleCount * 2;
+  const riskScore =
+    approvals.frictionScore +
+    incompleteCurrentGates.length * 2 +
+    context.staleCount * 2 +
+    verification.missingEvidenceCount;
   const status = blockers.length > 0 ? "blocked" : warnings.length > 0 ? "needs_review" : "ready";
   const riskLevel = riskScore >= 8 ? "high" : riskScore >= 4 ? "medium" : "low";
 
@@ -224,16 +278,68 @@ function derivePreflightBrief(state, options = {}) {
     blockers,
     warnings,
     nextActions: [...new Set(nextActions)].slice(0, 4),
-    currentMilestoneTitle: currentMilestone?.title ?? "No active milestone",
+    currentMilestoneTitle: currentMilestone?.title ?? (allMilestonesCompleted ? "All milestones completed" : "No active milestone"),
     currentGateBacklog: incompleteCurrentGates.length,
     staleContextCount: context.staleCount,
     approvalFrictionScore: approvals.frictionScore,
     summary:
-      status === "ready"
+      allMilestonesCompleted && status === "ready"
+        ? "The research bundle is complete, verified, and ready to share or reuse."
+        : status === "ready"
         ? "Local context, approvals, and verification signals are aligned well enough to proceed."
         : status === "blocked"
           ? "Autonomous execution is blocked until the approval queue is cleared."
           : "The run can continue, but context freshness or verification gaps should be reviewed first."
+  };
+}
+
+function deriveResumeBrief(state) {
+  const latestNote = state.statusNotes?.[0] ?? null;
+  const allMilestonesCompleted =
+    state.taskArtifacts.milestones.length > 0 &&
+    state.taskArtifacts.milestones.every((item) => item.status === "completed");
+  const currentMilestone =
+    state.taskArtifacts.milestones.find((item) => item.status === "in_progress") ??
+    state.taskArtifacts.milestones.find((item) => item.status === "pending") ??
+    null;
+  const currentGateIds = currentMilestone?.verificationGateIds ?? [];
+  const currentGates = state.verificationGates.filter((gate) => currentGateIds.includes(gate.id));
+  const nextGate = currentGates.find((gate) => gate.status !== "completed") ?? null;
+  const nextApproval =
+    state.approvals.find(
+      (item) => item.milestoneId === currentMilestone?.id && item.status !== "completed"
+    ) ?? state.approvals.find((item) => item.status !== "completed") ?? null;
+  const continuity = state.taskArtifacts.continuity ?? {};
+  const documents = state.taskArtifacts.documents ?? {};
+  const documentsToOpen = [documents.spec, documents.plan, documents.implement, documents.statusLog].filter(Boolean);
+
+  let nextCheckpoint = "Review the current run state before continuing.";
+  if (allMilestonesCompleted && !nextApproval && !nextGate) {
+    nextCheckpoint = "Share the generated workflow pack or export a final snapshot.";
+  } else if (nextApproval) {
+    nextCheckpoint = `Resolve approval: ${nextApproval.scope}`;
+  } else if (nextGate) {
+    nextCheckpoint = `Run verification: ${nextGate.label}`;
+  } else if (currentMilestone) {
+    nextCheckpoint = `Advance milestone: ${currentMilestone.title}`;
+  }
+
+  return {
+    status: continuity.resumable === false ? "non_resumable" : "resumable",
+    continuityMode: continuity.mode ?? "local",
+    threadId: continuity.threadId ?? "local-only",
+    resumable: continuity.resumable !== false,
+    currentMilestoneTitle: currentMilestone?.title ?? (allMilestonesCompleted ? "All milestones completed" : "No active milestone"),
+    nextCheckpoint,
+    lastUpdatedAt: state.updatedAt ?? state.generatedAt ?? null,
+    latestNote: latestNote?.text ?? "No status notes captured yet.",
+    documentsToOpen,
+    summary:
+      continuity.resumable === false
+        ? "The current task package is not marked resumable."
+        : allMilestonesCompleted
+          ? "The research bundle is complete. Reopen the artifacts only when you need to share the workflow pack or reuse the runbook."
+        : `Resume with ${currentMilestone?.title ?? "the next queued milestone"} and use the persisted runbook/documents to restore context quickly.`
   };
 }
 
@@ -245,6 +351,7 @@ function summarizeState(state) {
   const approvalSummary = deriveApprovalSummary(state);
   const contextStrategy = deriveContextStrategy(state);
   const preflight = derivePreflightBrief(state);
+  const verificationSummary = deriveVerificationSummary(state);
   const averageContextScore =
     state.contextSources.length === 0
       ? 0
@@ -262,6 +369,7 @@ function summarizeState(state) {
     averageContextScore,
     staleContextCount: contextStrategy.staleCount,
     approvalFrictionScore: approvalSummary.frictionScore,
+    missingVerificationEvidenceCount: verificationSummary.missingEvidenceCount,
     preflightStatus: preflight.status,
     riskLevel: preflight.riskLevel,
     activeSubagents: state.subagentRuns.filter((item) => item.state === "in_progress").length,
@@ -367,11 +475,99 @@ ${checkpoints || "- No verification gates defined yet."}
 `;
 }
 
+function createSkillBundle(state, options = {}) {
+  const generatedAt = options.generatedAt ?? new Date().toISOString();
+  const approvalSummary = deriveApprovalSummary(state);
+  const verificationSummary = deriveVerificationSummary(state);
+  const resume = deriveResumeBrief(state);
+  const skillDraft = createSkillDraft(state);
+
+  const manifest = {
+    schemaVersion: 1,
+    generatedAt,
+    name: "codex-agent-runbook",
+    workspaceName: state.workspaceName,
+    objective: state.taskArtifacts.objective,
+    continuity: state.taskArtifacts.continuity,
+    documents: state.taskArtifacts.documents,
+    milestones: state.taskArtifacts.milestones.map((item) => ({
+      id: item.id,
+      title: item.title,
+      status: item.status
+    })),
+    verification: {
+      summary: verificationSummary.summary,
+      nextGate: verificationSummary.nextGate?.label ?? null,
+      openCount: verificationSummary.openCount,
+      missingEvidenceCount: verificationSummary.missingEvidenceCount,
+      gates: state.verificationGates.map((gate) => ({
+        id: gate.id,
+        label: gate.label,
+        status: gate.status,
+        evidence: gate.evidence ?? "",
+        repairPolicy: gate.repairPolicy,
+        milestoneId: gate.milestoneId
+      }))
+    },
+    approvals: {
+      frictionScore: approvalSummary.frictionScore,
+      nextCheckpoint: approvalSummary.nextCheckpoint,
+      groups: approvalSummary.groups
+        .filter((group) => group.count > 0)
+        .map((group) => ({
+          status: group.status,
+          count: group.count,
+          scopes: group.scopes
+        }))
+    }
+  };
+
+  const readme = `# Codex Agent Workflow Pack
+
+Generated: ${generatedAt}
+
+This bundle captures the current reusable Codex workflow for durable multi-step work in VS Code.
+
+## Included files
+
+- \`SKILL.md\`: runnable skill draft
+- \`workflow-pack.json\`: machine-readable workflow metadata
+- \`README.md\`: human-readable summary for handoff or sharing
+
+## Continuation
+
+- Mode: ${resume.continuityMode}
+- Thread: ${resume.threadId}
+- Current milestone: ${resume.currentMilestoneTitle}
+- Next checkpoint: ${resume.nextCheckpoint}
+
+## Verification
+
+- Summary: ${verificationSummary.summary}
+- Open gates: ${verificationSummary.openCount}
+- Missing evidence: ${verificationSummary.missingEvidenceCount}
+
+## Approval posture
+
+- Friction score: ${approvalSummary.frictionScore}
+- Next checkpoint: ${approvalSummary.nextCheckpoint}
+`;
+
+  return {
+    skillDraft,
+    manifest,
+    readme
+  };
+}
+
 module.exports = {
   summarizeState,
   derivePriorityQueue,
   deriveContextStrategy,
   deriveApprovalSummary,
+  deriveVerificationSummary,
   derivePreflightBrief,
-  createSkillDraft
+  deriveResumeBrief,
+  createSkillDraft,
+  createSkillBundle
 };

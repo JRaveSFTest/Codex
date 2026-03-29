@@ -6,7 +6,9 @@ const {
   derivePriorityQueue,
   deriveContextStrategy,
   deriveApprovalSummary,
-  derivePreflightBrief
+  deriveVerificationSummary,
+  derivePreflightBrief,
+  deriveResumeBrief
 } = require("./domain");
 
 let currentPanel;
@@ -16,7 +18,9 @@ function renderDashboardHtml(webview, state, meta) {
   const queue = derivePriorityQueue(state).slice(0, 6);
   const contextStrategy = deriveContextStrategy(state);
   const approvalSummary = deriveApprovalSummary(state);
+  const verificationSummary = deriveVerificationSummary(state);
   const preflight = derivePreflightBrief(state);
+  const resume = deriveResumeBrief(state);
   const nonce = String(Date.now());
   const statusNotes = state.statusNotes?.slice(0, 6) ?? [];
   const snapshot = state.workspaceSnapshot ?? {};
@@ -29,6 +33,7 @@ function renderDashboardHtml(webview, state, meta) {
     { label: "Risk level", value: `${summary.riskLevel}` },
     { label: "Approval friction", value: `${summary.approvalFrictionScore}` },
     { label: "Stale context", value: `${summary.staleContextCount}` },
+    { label: "Missing evidence", value: `${summary.missingVerificationEvidenceCount}` },
     { label: "Active subagents", value: `${summary.activeSubagents}` },
     { label: "Estimated spend", value: `$${summary.estimatedCostUsd.toFixed(2)}` }
   ];
@@ -314,7 +319,7 @@ function renderDashboardHtml(webview, state, meta) {
         <div class="actions">
           <button data-command="seed">Seed Workspace Bundle</button>
           <button class="secondary" data-command="export">Export Snapshot</button>
-          <button class="secondary" data-command="skill">Generate Skill Draft</button>
+            <button class="secondary" data-command="skill">Generate Workflow Pack</button>
           <button class="secondary" data-command="refreshContext">Refresh Context</button>
           <button class="secondary" data-command="showDiagnostics">Show Diagnostics</button>
         </div>
@@ -341,7 +346,9 @@ function renderDashboardHtml(webview, state, meta) {
             <button class="secondary" data-command="note">Add Status Note</button>
             <button class="secondary" data-command="milestone">Update Milestone</button>
             <button class="secondary" data-command="verification">Update Gate</button>
+            <button class="secondary" data-command="reviewVerification">Review Gate</button>
             <button class="secondary" data-command="approval">Update Approval</button>
+            <button class="secondary" data-command="reviewApproval">Review Approval</button>
             <button class="secondary" data-command="subagent">Update Subagent</button>
           </div>
         </div>
@@ -402,6 +409,9 @@ function renderDashboardHtml(webview, state, meta) {
             </div>
             ${approvalGroupItems || `<div class="recommendation">No approvals are currently tracked.</div>`}
           </div>
+          <div class="actions">
+            <button class="secondary" data-command="reviewApproval">Review Approval</button>
+          </div>
         </div>
       </section>
 
@@ -417,6 +427,38 @@ function renderDashboardHtml(webview, state, meta) {
                   )}</div></div>`
               )
               .join("")}
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Verification Queue</h2>
+          <div class="recommendations">
+            <div class="recommendation">
+              <strong>Summary:</strong> ${escapeHtml(verificationSummary.summary)}<br/>
+              <strong>Open gates:</strong> ${verificationSummary.openCount}<br/>
+              <strong>Reviewed completed gates:</strong> ${verificationSummary.reviewedCount}/${verificationSummary.completedCount}<br/>
+              <strong>Missing evidence:</strong> ${verificationSummary.missingEvidenceCount}
+            </div>
+            ${
+              verificationSummary.nextGate
+                ? `<div class="recommendation"><span class="status-chip review">next</span>${escapeHtml(
+                    verificationSummary.nextGate.label
+                  )}<br/>${escapeHtml(
+                    `${verificationSummary.nextGate.status} | ${verificationSummary.nextGate.milestoneTitle}`
+                  )}</div>`
+                : `<div class="recommendation">No open verification gates remain.</div>`
+            }
+            ${verificationSummary.openGates
+              .slice(0, 4)
+              .map(
+                (gate) =>
+                  `<div class="recommendation"><strong>${escapeHtml(gate.label)}</strong><br/>${escapeHtml(
+                    `${gate.status} | ${gate.milestoneTitle}`
+                  )}<br/>${escapeHtml(gate.command)}</div>`
+              )
+              .join("")}
+          </div>
+          <div class="actions">
+            <button class="secondary" data-command="reviewVerification">Review Verification Gate</button>
           </div>
         </div>
         <div class="panel">
@@ -439,6 +481,42 @@ function renderDashboardHtml(webview, state, meta) {
 
       <section class="columns">
         <div class="panel">
+          <h2>Continuation</h2>
+          <div class="recommendations">
+            <div class="recommendation">
+              <span class="status-chip ${resume.resumable ? "ok" : "warn"}">${escapeHtml(resume.status)}</span>
+              ${escapeHtml(resume.summary)}
+            </div>
+            <div class="recommendation">
+              <strong>Mode:</strong> ${escapeHtml(resume.continuityMode)}<br/>
+              <strong>Thread:</strong> ${escapeHtml(resume.threadId)}<br/>
+              <strong>Current milestone:</strong> ${escapeHtml(resume.currentMilestoneTitle)}<br/>
+              <strong>Next checkpoint:</strong> ${escapeHtml(resume.nextCheckpoint)}
+            </div>
+            <div class="recommendation">
+              <strong>Last updated:</strong> ${escapeHtml(resume.lastUpdatedAt ?? "n/a")}<br/>
+              <strong>Latest note:</strong> ${escapeHtml(resume.latestNote)}
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Resume Order</h2>
+          <div class="recommendations">
+            ${resume.documentsToOpen
+              .map((item) => `<div class="recommendation">${escapeHtml(item)}</div>`)
+              .join("")}
+          </div>
+          <div class="actions">
+            <button class="secondary" data-command="openSpec">Open Spec</button>
+            <button class="secondary" data-command="openPlan">Open Plan</button>
+            <button class="secondary" data-command="openImplement">Open Runbook</button>
+            <button class="secondary" data-command="openStatus">Open Status</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="columns">
+        <div class="panel">
           <h2>Workspace Snapshot</h2>
           <table>
             <tbody>
@@ -447,7 +525,7 @@ function renderDashboardHtml(webview, state, meta) {
               <tr><th>Selection</th><td>${escapeHtml(snapshot.selection ?? "none")}</td></tr>
               <tr><th>Visible editors</th><td>${escapeHtml((snapshot.visibleEditors ?? []).join(", ") || "none")}</td></tr>
               <tr><th>AGENTS files</th><td>${escapeHtml((snapshot.agentFiles ?? []).join(", ") || "none")}</td></tr>
-              <tr><th>Skill draft</th><td>${snapshot.generatedSkillDraft ? "yes" : "no"}</td></tr>
+              <tr><th>Workflow pack</th><td>${snapshot.generatedSkillDraft ? "yes" : "no"}</td></tr>
               <tr><th>Git detected</th><td>${snapshot.gitDetected ? "yes" : "no"}</td></tr>
             </tbody>
           </table>
@@ -457,6 +535,7 @@ function renderDashboardHtml(webview, state, meta) {
           <div class="actions">
             <button class="secondary" data-command="openSpec">Open Spec</button>
             <button class="secondary" data-command="openPlan">Open Plan</button>
+            <button class="secondary" data-command="openImplement">Open Runbook</button>
             <button class="secondary" data-command="openStatus">Open Status</button>
             <button class="secondary" data-command="openContext">Open Context</button>
           </div>
@@ -465,6 +544,15 @@ function renderDashboardHtml(webview, state, meta) {
               .map((item) => `<div class="recommendation">${escapeHtml(item)}</div>`)
               .join("")}
           </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Workflow Pack</h2>
+        <div class="recommendations">
+          <div class="recommendation">generated-skill/SKILL.md</div>
+          <div class="recommendation">generated-skill/README.md</div>
+          <div class="recommendation">generated-skill/workflow-pack.json</div>
         </div>
       </section>
 
@@ -594,8 +682,14 @@ async function openDashboard(context, stateLoader, actions, metaLoader) {
         case "verification":
           await actions.verification();
           break;
+        case "reviewVerification":
+          await actions.reviewVerification();
+          break;
         case "approval":
           await actions.approval();
+          break;
+        case "reviewApproval":
+          await actions.reviewApproval();
           break;
         case "subagent":
           await actions.subagent();
@@ -608,6 +702,9 @@ async function openDashboard(context, stateLoader, actions, metaLoader) {
           break;
         case "openPlan":
           await actions.openPlan();
+          break;
+        case "openImplement":
+          await actions.openImplement();
           break;
         case "openStatus":
           await actions.openStatus();

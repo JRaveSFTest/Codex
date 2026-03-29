@@ -8,15 +8,19 @@ const {
   derivePriorityQueue,
   deriveContextStrategy,
   deriveApprovalSummary,
+  deriveVerificationSummary,
   derivePreflightBrief,
-  createSkillDraft
+  deriveResumeBrief,
+  createSkillBundle
 } = require("./domain");
 const {
   normalizeState,
   appendStatusNote,
   setMilestoneStatus,
   setVerificationGateStatus,
+  recordVerificationReview,
   setApprovalStatus,
+  recordApprovalReview,
   setSubagentStatus,
   applyWorkspaceSnapshot
 } = require("./stateModel");
@@ -127,7 +131,9 @@ async function exportSnapshot(state) {
   const queue = derivePriorityQueue(state);
   const contextStrategy = deriveContextStrategy(state);
   const approvalSummary = deriveApprovalSummary(state);
+  const verificationSummary = deriveVerificationSummary(state);
   const preflight = derivePreflightBrief(state);
+  const resume = deriveResumeBrief(state);
 
   await fs.mkdir(reportDir, { recursive: true });
   await fs.writeFile(
@@ -146,12 +152,28 @@ Generated: ${new Date().toISOString()}
 - Approval friction score: ${summary.approvalFrictionScore}
 - Average context score: ${summary.averageContextScore}
 - Stale context sources: ${summary.staleContextCount}
+- Verification gates missing evidence: ${summary.missingVerificationEvidenceCount}
 - Preflight status: ${preflight.status} (${preflight.riskLevel})
 - Estimated subagent cost: $${summary.estimatedCostUsd.toFixed(2)}
+
+## Continuation
+
+- Summary: ${resume.summary}
+- Current milestone: ${resume.currentMilestoneTitle}
+- Next checkpoint: ${resume.nextCheckpoint}
+- Last updated: ${resume.lastUpdatedAt}
 
 ## Priority Queue
 
 ${queue.map((item) => `- [${item.kind}] ${item.title}`).join("\n")}
+
+## Verification
+
+- Summary: ${verificationSummary.summary}
+- Open gates: ${verificationSummary.openCount}
+- Completed with review metadata: ${verificationSummary.reviewedCount}/${verificationSummary.completedCount}
+- Missing evidence: ${verificationSummary.missingEvidenceCount}
+- Next gate: ${verificationSummary.nextGate?.label ?? "none"}
 
 ## Preflight
 
@@ -184,13 +206,19 @@ ${approvalSummary.groups
 async function promoteWorkflowToSkill(state) {
   const rootPath = getWorkspaceRoot();
   if (!rootPath) {
-    throw new Error("Open a workspace folder before generating a skill draft.");
+    throw new Error("Open a workspace folder before generating a workflow pack.");
   }
 
   const skillDir = path.join(rootPath, "generated-skill");
   const skillPath = path.join(skillDir, "SKILL.md");
+  const readmePath = path.join(skillDir, "README.md");
+  const manifestPath = path.join(skillDir, "workflow-pack.json");
+  const bundle = createSkillBundle(state);
   await fs.mkdir(skillDir, { recursive: true });
-  await fs.writeFile(skillPath, createSkillDraft(state), "utf8");
+  await fs.writeFile(skillPath, bundle.skillDraft, "utf8");
+  await fs.writeFile(readmePath, bundle.readme, "utf8");
+  await fs.writeFile(manifestPath, JSON.stringify(bundle.manifest, null, 2), "utf8");
+  await saveState(appendStatusNote(state, "Generated the reusable workflow pack in generated-skill/.", "system", "skill"));
   return skillPath;
 }
 
@@ -214,6 +242,30 @@ async function updateVerificationGateState(gateId, status) {
     `Verification gate "${gate?.label ?? gateId}" set to ${status}.`,
     "user",
     "verification"
+  );
+  return saveState(nextState);
+}
+
+async function reviewVerificationGate(gateId, status, evidence, reviewer = "user") {
+  const state = await loadState();
+  const gate = state.verificationGates.find((item) => item.id === gateId);
+  const nextState = appendStatusNote(
+    recordVerificationReview(state, gateId, { status, evidence, reviewer }),
+    `Verification gate "${gate?.label ?? gateId}" reviewed as ${status}. ${evidence}`,
+    reviewer,
+    "verification"
+  );
+  return saveState(nextState);
+}
+
+async function reviewApproval(approvalId, status, evidence, reviewer = "user", resolution = "") {
+  const state = await loadState();
+  const approval = state.approvals.find((item) => item.id === approvalId);
+  const nextState = appendStatusNote(
+    recordApprovalReview(state, approvalId, { status, evidence, reviewer, resolution }),
+    `Approval "${approval?.scope ?? approvalId}" reviewed as ${status}. ${evidence}`,
+    reviewer,
+    "approval"
   );
   return saveState(nextState);
 }
@@ -254,7 +306,8 @@ async function openResearchDocument(kind) {
     spec: state.taskArtifacts.documents.spec,
     plan: state.taskArtifacts.documents.plan,
     status: state.taskArtifacts.documents.statusLog,
-    context: state.taskArtifacts.documents.context
+    context: state.taskArtifacts.documents.context,
+    implement: state.taskArtifacts.documents.implement
   };
   const relativePath = documentMap[kind];
   if (!relativePath) {
@@ -289,6 +342,7 @@ async function captureWorkspaceSnapshot(rootPath) {
     path.join(RESEARCH_DIR, "spec.md"),
     path.join(RESEARCH_DIR, "plan.md"),
     path.join(RESEARCH_DIR, "status.md"),
+    path.join(RESEARCH_DIR, "implement.md"),
     path.join(RESEARCH_DIR, "workspace-context.md")
   ]);
 
@@ -415,7 +469,9 @@ ${item.verificationGateIds
 
 function renderStatus(state) {
   const summary = summarizeState(state);
+  const verificationSummary = deriveVerificationSummary(state);
   const preflight = derivePreflightBrief(state);
+  const resume = deriveResumeBrief(state);
   return `# Status Log
 
 Generated: ${state.generatedAt}
@@ -429,7 +485,16 @@ Updated: ${state.updatedAt}
 - Pending or blocked approvals: ${summary.blockedApprovals}
 - Approval friction score: ${summary.approvalFrictionScore}
 - Active subagents: ${summary.activeSubagents}
+- Verification gates missing evidence: ${summary.missingVerificationEvidenceCount}
 - Preflight: ${preflight.status} (${preflight.riskLevel})
+
+## Continuation
+
+- Summary: ${resume.summary}
+- Current milestone: ${resume.currentMilestoneTitle}
+- Next checkpoint: ${resume.nextCheckpoint}
+- Last updated: ${resume.lastUpdatedAt}
+- Latest note: ${resume.latestNote}
 
 ## Preflight
 
@@ -439,6 +504,17 @@ Updated: ${state.updatedAt}
 
 Next actions:
 ${preflight.nextActions.map((item) => `- ${item}`).join("\n")}
+
+## Verification Queue
+
+- Summary: ${verificationSummary.summary}
+- Open gates: ${verificationSummary.openCount}
+- Completed with review metadata: ${verificationSummary.reviewedCount}/${verificationSummary.completedCount}
+- Missing evidence: ${verificationSummary.missingEvidenceCount}
+- Next gate: ${verificationSummary.nextGate?.label ?? "none"}
+
+Open gate list:
+${verificationSummary.openGates.map((gate) => `- ${gate.label} (${gate.status}, ${gate.milestoneTitle})`).join("\n")}
 
 ## Recent Notes
 
@@ -454,6 +530,8 @@ ${state.recommendations.map((item) => `- ${item}`).join("\n")}
 }
 
 function renderImplementation(state) {
+  const verificationSummary = deriveVerificationSummary(state);
+  const resume = deriveResumeBrief(state);
   return `# Implementation Runbook
 
 - Treat \`spec.md\` as the durable objective.
@@ -462,6 +540,28 @@ function renderImplementation(state) {
 - Refresh live context before making large changes or after a context switch.
 - Update \`status.md\` after each milestone or approval checkpoint.
 - Review \`workspace-context.md\` when the agent appears to have weak or stale context.
+
+## Continuation
+
+- Mode: ${resume.continuityMode}
+- Thread: ${resume.threadId}
+- Resumable: ${resume.resumable ? "yes" : "no"}
+- Current milestone: ${resume.currentMilestoneTitle}
+- Next checkpoint: ${resume.nextCheckpoint}
+- Last updated: ${resume.lastUpdatedAt}
+- Latest note: ${resume.latestNote}
+
+## Resume order
+
+${resume.documentsToOpen.map((item) => `- ${item}`).join("\n")}
+
+## Verification discipline
+
+- Finish verification with evidence, not only a status flip.
+- Record what was checked, what passed or failed, and why the gate moved.
+- Current verification summary: ${verificationSummary.summary}
+- Next gate: ${verificationSummary.nextGate?.label ?? "none"}
+- Missing evidence: ${verificationSummary.missingEvidenceCount}
 
 ## Priority Queue
 
@@ -485,7 +585,7 @@ Captured: ${snapshot.capturedAt}
 ## Repo Signals
 
 - Git detected: ${snapshot.gitDetected ? "yes" : "no"}
-- Generated skill draft: ${snapshot.generatedSkillDraft ? "yes" : "no"}
+- Workflow pack generated: ${snapshot.generatedSkillDraft ? "yes" : "no"}
 - AGENTS files: ${snapshot.agentFiles.length > 0 ? snapshot.agentFiles.join(", ") : "none"}
 
 ## Repo Sample
@@ -515,7 +615,9 @@ module.exports = {
   promoteWorkflowToSkill,
   updateMilestoneState,
   updateVerificationGateState,
+  reviewVerificationGate,
   updateApprovalState,
+  reviewApproval,
   updateSubagentRunState,
   addUserStatusNote,
   openResearchDocument

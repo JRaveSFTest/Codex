@@ -1,7 +1,14 @@
 "use strict";
 
 const vscode = require("vscode");
-const { summarizeState, deriveContextStrategy, deriveApprovalSummary, derivePreflightBrief } = require("./domain");
+const {
+  summarizeState,
+  deriveContextStrategy,
+  deriveApprovalSummary,
+  deriveVerificationSummary,
+  derivePreflightBrief,
+  deriveResumeBrief
+} = require("./domain");
 
 function iconForStatus(status) {
   switch (status) {
@@ -47,6 +54,7 @@ class TaskArtifactsProvider extends BaseProvider {
 
     const state = await this.loader();
     const summary = summarizeState(state);
+    const resume = deriveResumeBrief(state);
 
     return [
       new NodeItem(
@@ -64,6 +72,19 @@ class TaskArtifactsProvider extends BaseProvider {
           new NodeItem(
             `Artifacts: ${Object.values(state.taskArtifacts.documents).join(", ")}`,
             vscode.TreeItemCollapsibleState.None
+          ),
+          new NodeItem(
+            "Continuation",
+            vscode.TreeItemCollapsibleState.Expanded,
+            new vscode.ThemeIcon("history"),
+            [
+              new NodeItem(`Mode: ${resume.continuityMode}`, vscode.TreeItemCollapsibleState.None),
+              new NodeItem(`Thread: ${resume.threadId}`, vscode.TreeItemCollapsibleState.None),
+              new NodeItem(`Current milestone: ${resume.currentMilestoneTitle}`, vscode.TreeItemCollapsibleState.None),
+              new NodeItem(`Next checkpoint: ${resume.nextCheckpoint}`, vscode.TreeItemCollapsibleState.None),
+              new NodeItem(`Last updated: ${resume.lastUpdatedAt ?? "n/a"}`, vscode.TreeItemCollapsibleState.None),
+              new NodeItem(`Latest note: ${resume.latestNote}`, vscode.TreeItemCollapsibleState.None)
+            ]
           ),
           new NodeItem(
             "Milestones",
@@ -193,6 +214,7 @@ class ApprovalsProvider extends BaseProvider {
 
     const state = await this.loader();
     const approvalSummary = deriveApprovalSummary(state);
+    const verificationSummary = deriveVerificationSummary(state);
     const preflight = derivePreflightBrief(state);
     const gates = state.verificationGates.map((gate) =>
       new NodeItem(
@@ -201,7 +223,10 @@ class ApprovalsProvider extends BaseProvider {
         iconForStatus(gate.status),
         [
           new NodeItem(`Command: ${gate.command}`, vscode.TreeItemCollapsibleState.None),
-          new NodeItem(`Repair policy: ${gate.repairPolicy}`, vscode.TreeItemCollapsibleState.None)
+          new NodeItem(`Repair policy: ${gate.repairPolicy}`, vscode.TreeItemCollapsibleState.None),
+          new NodeItem(`Last reviewed: ${gate.lastReviewedAt ?? "not reviewed"}`, vscode.TreeItemCollapsibleState.None),
+          new NodeItem(`Reviewer: ${gate.lastReviewedBy ?? "n/a"}`, vscode.TreeItemCollapsibleState.None),
+          new NodeItem(`Evidence: ${gate.evidence || "none recorded"}`, vscode.TreeItemCollapsibleState.None)
         ]
       )
     );
@@ -213,7 +238,11 @@ class ApprovalsProvider extends BaseProvider {
         [
           new NodeItem(`Requested by: ${item.requestedBy}`, vscode.TreeItemCollapsibleState.None),
           new NodeItem(`Reason: ${item.rationale}`, vscode.TreeItemCollapsibleState.None),
-          new NodeItem(`Command: ${item.command ?? "n/a"}`, vscode.TreeItemCollapsibleState.None)
+          new NodeItem(`Command: ${item.command ?? "n/a"}`, vscode.TreeItemCollapsibleState.None),
+          new NodeItem(`Resolution: ${item.resolution ?? "n/a"}`, vscode.TreeItemCollapsibleState.None),
+          new NodeItem(`Last reviewed: ${item.lastReviewedAt ?? "not reviewed"}`, vscode.TreeItemCollapsibleState.None),
+          new NodeItem(`Reviewer: ${item.lastReviewedBy ?? "n/a"}`, vscode.TreeItemCollapsibleState.None),
+          new NodeItem(`Evidence: ${item.evidence || "none recorded"}`, vscode.TreeItemCollapsibleState.None)
         ]
       )
     );
@@ -245,6 +274,20 @@ class ApprovalsProvider extends BaseProvider {
           ...preflight.blockers.map((item) => new NodeItem(`Blocker: ${item}`, vscode.TreeItemCollapsibleState.None)),
           ...preflight.warnings.map((item) => new NodeItem(`Warning: ${item}`, vscode.TreeItemCollapsibleState.None)),
           ...preflight.nextActions.map((item) => new NodeItem(`Next: ${item}`, vscode.TreeItemCollapsibleState.None))
+        ]
+      ),
+      new NodeItem(
+        `Verification Queue (${verificationSummary.openCount} open)`,
+        vscode.TreeItemCollapsibleState.Expanded,
+        new vscode.ThemeIcon("checklist"),
+        [
+          new NodeItem(`Summary: ${verificationSummary.summary}`, vscode.TreeItemCollapsibleState.None),
+          new NodeItem(
+            `Reviewed completed gates: ${verificationSummary.reviewedCount}/${verificationSummary.completedCount}`,
+            vscode.TreeItemCollapsibleState.None
+          ),
+          new NodeItem(`Missing evidence: ${verificationSummary.missingEvidenceCount}`, vscode.TreeItemCollapsibleState.None),
+          new NodeItem(`Next gate: ${verificationSummary.nextGate?.label ?? "none"}`, vscode.TreeItemCollapsibleState.None)
         ]
       ),
       new NodeItem(

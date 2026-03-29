@@ -10,12 +10,15 @@ const {
   promoteWorkflowToSkill,
   updateMilestoneState,
   updateVerificationGateState,
+  reviewVerificationGate,
   updateApprovalState,
+  reviewApproval,
   updateSubagentRunState,
   addUserStatusNote,
   openResearchDocument
 } = require("./store");
 const { STATUS_VALUES } = require("./stateModel");
+const { deriveApprovalSummary, deriveVerificationSummary } = require("./domain");
 const {
   getExtensionModeLabel,
   isDebugMode,
@@ -175,6 +178,117 @@ function activate(context) {
     );
   }
 
+  async function promptForVerificationReview() {
+    const state = await loadState();
+    const summary = deriveVerificationSummary(state);
+    const availableGates = summary.openGates.length > 0 ? summary.openGates : state.verificationGates;
+    const target = await vscode.window.showQuickPick(
+      availableGates.map((gate) => ({
+        label: gate.label,
+        description: `${gate.status} | ${gate.milestoneTitle ?? "verification gate"}`,
+        detail: `${gate.command}${gate.repairPolicy ? ` | ${gate.repairPolicy}` : ""}`,
+        id: gate.id
+      })),
+      { title: "Review a verification gate" }
+    );
+    if (!target) {
+      return;
+    }
+
+    const nextStatus = await vscode.window.showQuickPick(
+      STATUS_VALUES.map((status) => ({
+        label: status,
+        description:
+          status === "completed"
+            ? "Verification passed"
+            : status === "blocked"
+              ? "Verification found a blocking issue"
+              : status === "in_progress"
+                ? "Verification started but is not finished"
+                : "Verification has not started"
+      })),
+      { title: `Record verification outcome for ${target.label}` }
+    );
+    if (!nextStatus) {
+      return;
+    }
+
+    const evidence = await vscode.window.showInputBox({
+      title: "Record verification evidence",
+      prompt: "Summarize what was checked and why this gate is in its new state.",
+      placeHolder: "Example: Ran node --test and npm.cmd run check; dashboard and sidebar show the new verification sections.",
+      validateInput: (value) => (value.trim() ? undefined : "Enter verification evidence.")
+    });
+    if (!evidence) {
+      return;
+    }
+
+    await runAction(
+      () => reviewVerificationGate(target.id, nextStatus.label, evidence),
+      () => `Reviewed ${target.label} as ${nextStatus.label}.`,
+      `review verification ${target.label}`
+    );
+  }
+
+  async function promptForApprovalReview() {
+    const state = await loadState();
+    const summary = deriveApprovalSummary(state);
+    const availableApprovals = state.approvals.filter((item) => item.status !== "completed");
+    const targets = availableApprovals.length > 0 ? availableApprovals : state.approvals;
+    const target = await vscode.window.showQuickPick(
+      targets.map((approval) => ({
+        label: approval.scope,
+        description: `${approval.status} | ${approval.requestedBy}`,
+        detail: `${approval.command ?? "no command"}${approval.rationale ? ` | ${approval.rationale}` : ""}`,
+        id: approval.id
+      })),
+      { title: `Review an approval (${summary.nextCheckpoint})` }
+    );
+    if (!target) {
+      return;
+    }
+
+    const nextStatus = await vscode.window.showQuickPick(
+      STATUS_VALUES.map((status) => ({
+        label: status,
+        description:
+          status === "completed"
+            ? "Approval cleared"
+            : status === "blocked"
+              ? "Approval remains blocked"
+              : status === "in_progress"
+                ? "Approval is under active review"
+                : "Approval is waiting on more information"
+      })),
+      { title: `Record approval outcome for ${target.label}` }
+    );
+    if (!nextStatus) {
+      return;
+    }
+
+    const evidence = await vscode.window.showInputBox({
+      title: "Record approval evidence",
+      prompt: "Explain why this approval moved and what policy or decision supports it.",
+      placeHolder: "Example: Prototype completion accepts local-only validation; live external benchmark deferred until production telemetry exists.",
+      validateInput: (value) => (value.trim() ? undefined : "Enter approval evidence.")
+    });
+    if (!evidence) {
+      return;
+    }
+
+    const resolution = await vscode.window.showInputBox({
+      title: "Record approval resolution",
+      prompt: "Capture the final approval decision or policy outcome.",
+      placeHolder: "Example: approved-with-local-validation"
+    });
+
+    await runAction(
+      () => reviewApproval(target.id, nextStatus.label, evidence, "user", resolution ?? ""),
+      () => `Reviewed ${target.label} as ${nextStatus.label}.`,
+      `review approval ${target.label}`
+    );
+  }
+
   async function openDashboardPanel(source = "manual") {
     try {
       logInfo(`Opening dashboard (${source}).`);
@@ -194,14 +308,14 @@ function activate(context) {
               "export snapshot"
             ),
           skill: async () =>
-            runAction(
-              async () => {
-                const state = await loadState();
-                return promoteWorkflowToSkill(state);
-              },
-              (skillPath) => `Generated skill draft at ${skillPath}.`,
-              "generate skill draft"
-            ),
+              runAction(
+                async () => {
+                  const state = await loadState();
+                  return promoteWorkflowToSkill(state);
+                },
+                (skillPath) => `Generated workflow pack at ${skillPath}.`,
+                "generate workflow pack"
+              ),
           refreshContext: async () =>
             runAction(() => captureWorkspaceContext(), () => "Refreshed workspace context.", "refresh workspace context"),
           milestone: async () => {
@@ -224,6 +338,8 @@ function activate(context) {
               "label"
             );
           },
+          reviewVerification: async () => promptForVerificationReview(),
+          reviewApproval: async () => promptForApprovalReview(),
           approval: async () => {
             const state = await loadState();
             return promptForStateUpdate(
@@ -257,6 +373,7 @@ function activate(context) {
           },
           openSpec: async () => runAction(() => openResearchDocument("spec"), undefined, "open spec"),
           openPlan: async () => runAction(() => openResearchDocument("plan"), undefined, "open plan"),
+          openImplement: async () => runAction(() => openResearchDocument("implement"), undefined, "open implementation runbook"),
           openStatus: async () => runAction(() => openResearchDocument("status"), undefined, "open status log"),
           openContext: async () => runAction(() => openResearchDocument("context"), undefined, "open context"),
           showDiagnostics: async () => runAction(() => showDiagnostics(), () => "Opened Codex Research diagnostics.", "show diagnostics")
@@ -377,8 +494,8 @@ function activate(context) {
           const state = await loadState();
           return promoteWorkflowToSkill(state);
         },
-        (skillPath) => `Generated skill draft at ${skillPath}.`,
-        "promote workflow to skill"
+        (skillPath) => `Generated workflow pack at ${skillPath}.`,
+        "generate workflow pack"
       );
     }),
     vscode.commands.registerCommand("codexResearch.updateMilestoneStatus", async () => {
@@ -400,6 +517,12 @@ function activate(context) {
         "status",
         "label"
       );
+    }),
+    vscode.commands.registerCommand("codexResearch.reviewVerificationGate", async () => {
+      await promptForVerificationReview();
+    }),
+    vscode.commands.registerCommand("codexResearch.reviewApproval", async () => {
+      await promptForApprovalReview();
     }),
     vscode.commands.registerCommand("codexResearch.updateApprovalStatus", async () => {
       const state = await loadState();
@@ -437,6 +560,9 @@ function activate(context) {
     }),
     vscode.commands.registerCommand("codexResearch.openPlan", async () => {
       await runAction(() => openResearchDocument("plan"), undefined, "open plan");
+    }),
+    vscode.commands.registerCommand("codexResearch.openImplementationRunbook", async () => {
+      await runAction(() => openResearchDocument("implement"), undefined, "open implementation runbook");
     }),
     vscode.commands.registerCommand("codexResearch.openStatusLog", async () => {
       await runAction(() => openResearchDocument("status"), undefined, "open status log");

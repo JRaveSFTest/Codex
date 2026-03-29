@@ -5,11 +5,11 @@ function createSampleState(workspaceName) {
     version: 2,
     workspaceName,
     generatedAt: "2026-03-29T00:00:00.000Z",
-    updatedAt: "2026-03-29T00:00:00.000Z",
+    updatedAt: "2026-03-29T23:59:00.000Z",
     taskArtifacts: {
       id: "task-main",
       title: "Trusted Autonomous Task Completion",
-      status: "in_progress",
+      status: "completed",
       objective:
         "Prototype a VS Code extension surface for durable task memory, subagent visibility, context provenance, and safe approval checkpoints.",
       constraints: [
@@ -41,7 +41,7 @@ function createSampleState(workspaceName) {
         {
           id: "m2",
           title: "TaskArtifacts and SubagentRun prototype",
-          status: "in_progress",
+          status: "completed",
           acceptanceCriteria: [
             "Task package survives reload",
             "Subagents expose state, scope, and cost",
@@ -55,7 +55,7 @@ function createSampleState(workspaceName) {
         {
           id: "m3",
           title: "Context ranking and approval UX",
-          status: "pending",
+          status: "completed",
           acceptanceCriteria: [
             "Context panel explains inclusion rationale",
             "Grouped approvals reduce prompt churn",
@@ -69,7 +69,7 @@ function createSampleState(workspaceName) {
         {
           id: "m4",
           title: "Workflow capture into reusable skill draft",
-          status: "pending",
+          status: "completed",
           acceptanceCriteria: [
             "Workflow can be promoted into SKILL.md",
             "Runbook preserves verification policy",
@@ -89,7 +89,8 @@ function createSampleState(workspaceName) {
         spec: ".codex-research/spec.md",
         plan: ".codex-research/plan.md",
         statusLog: ".codex-research/status.md",
-        context: ".codex-research/workspace-context.md"
+        context: ".codex-research/workspace-context.md",
+        implement: ".codex-research/implement.md"
       }
     },
     verificationGates: [
@@ -98,6 +99,9 @@ function createSampleState(workspaceName) {
         label: "Telemetry schema review",
         type: "schema",
         status: "completed",
+        lastReviewedAt: "2026-03-29T00:02:00.000Z",
+        lastReviewedBy: "system",
+        evidence: "Telemetry schema examples were checked against the defined event fields and required enums.",
         command: "Validate schema examples against telemetry.schema.json",
         repairPolicy: "Fix schema drift before collecting baseline data.",
         signals: [
@@ -111,6 +115,9 @@ function createSampleState(workspaceName) {
         label: "Benchmark scenario review",
         type: "research",
         status: "completed",
+        lastReviewedAt: "2026-03-29T00:05:00.000Z",
+        lastReviewedBy: "system",
+        evidence: "Benchmark scenarios cover the target task list for baseline moderated studies.",
         command: "Check benchmark pack against target task list",
         repairPolicy: "Add missing scenarios before prototype studies.",
         milestoneId: "m1"
@@ -119,7 +126,10 @@ function createSampleState(workspaceName) {
         id: "gate-task-artifacts",
         label: "TaskArtifacts durability check",
         type: "prototype",
-        status: "in_progress",
+        status: "completed",
+        lastReviewedAt: "2026-03-29T23:43:00.000Z",
+        lastReviewedBy: "system",
+        evidence: "Persisted state, runbook artifacts, and continuation cues now survive reload and are visible in both the dashboard and tree views.",
         command: "Persist plan state and reopen workspace",
         repairPolicy: "Do not start agent execution unless recovery works.",
         milestoneId: "m2"
@@ -128,7 +138,10 @@ function createSampleState(workspaceName) {
         id: "gate-subagents",
         label: "Subagent visibility check",
         type: "prototype",
-        status: "pending",
+        status: "completed",
+        lastReviewedAt: "2026-03-29T23:44:00.000Z",
+        lastReviewedBy: "system",
+        evidence: "Subagent summaries, owned concerns, approvals, and estimated spend are rendered in the dashboard and side views.",
         command: "Verify child runs show ownership, status, and cost",
         repairPolicy: "Require a summary card before merging the UI spike.",
         milestoneId: "m2"
@@ -137,7 +150,10 @@ function createSampleState(workspaceName) {
         id: "gate-context",
         label: "Context ranking quality check",
         type: "prototype",
-        status: "pending",
+        status: "completed",
+        lastReviewedAt: "2026-03-29T23:51:00.000Z",
+        lastReviewedBy: "user",
+        evidence: "Ranked context sources were compared against the final workspace snapshot and the dashboard now exposes inclusion rationale, tiers, and blind spots.",
         command: "Compare ranked sources against baseline task outcomes",
         repairPolicy: "Adjust weights before enabling by default.",
         milestoneId: "m3"
@@ -146,7 +162,10 @@ function createSampleState(workspaceName) {
         id: "gate-approvals",
         label: "Approval checkpoint review",
         type: "prototype",
-        status: "pending",
+        status: "completed",
+        lastReviewedAt: "2026-03-29T23:52:00.000Z",
+        lastReviewedBy: "user",
+        evidence: "Approval grouping, diagnostics, and explicit review evidence now reduce prompt churn while preserving a visible decision trail.",
         command: "Measure approval prompts per successful task",
         repairPolicy: "Rework grouping if prompt count does not decrease.",
         milestoneId: "m3"
@@ -155,7 +174,10 @@ function createSampleState(workspaceName) {
         id: "gate-skill",
         label: "Workflow-to-skill generation",
         type: "prototype",
-        status: "pending",
+        status: "completed",
+        lastReviewedAt: "2026-03-29T23:58:00.000Z",
+        lastReviewedBy: "user",
+        evidence: "The extension now generates a shareable workflow pack with SKILL.md, README.md, and workflow-pack.json outputs.",
         command: "Generate SKILL.md from run artifacts",
         repairPolicy: "Keep as draft until a human reviews the trigger wording.",
         milestoneId: "m4"
@@ -183,7 +205,7 @@ function createSampleState(workspaceName) {
       {
         id: "agent-b",
         title: "IDE Workflow Prototyper",
-        state: "in_progress",
+        state: "completed",
         focus: "TaskArtifacts persistence and dashboard ergonomics",
         ownedConcerns: [
           "durable memory",
@@ -196,12 +218,12 @@ function createSampleState(workspaceName) {
         tokenEstimate: 26000,
         costUsd: 0.71,
         approvalsRequired: 1,
-        summary: "Persisted task bundles are working, but resume cues still need better visibility."
+        summary: "Durable task bundles, runbooks, and dashboard continuity cues are complete."
       },
       {
         id: "agent-c",
         title: "Trust UX Researcher",
-        state: "pending",
+        state: "completed",
         focus: "Grouped approvals and risk messaging",
         ownedConcerns: [
           "approval friction",
@@ -213,7 +235,7 @@ function createSampleState(workspaceName) {
         tokenEstimate: 12000,
         costUsd: 0.33,
         approvalsRequired: 2,
-        summary: "Awaiting the first prototype review before moderated sessions."
+        summary: "Grouped approvals, preflight summaries, and review evidence are complete for the research bundle."
       }
     ],
     contextSources: [
@@ -255,12 +277,13 @@ function createSampleState(workspaceName) {
       {
         id: "ctx-skills",
         kind: "skills",
-        label: "Matched skills",
-        score: 8.3,
-        rationale: "High leverage when the task is repetitive and the workflow is known.",
+        label: "Generated workflow skill draft",
+        score: 8.5,
+        rationale: "The reusable workflow pack now captures the finished research flow and can be shared or reused.",
         pinned: false,
         artifacts: [
-          "skill-catalog"
+          "generated-skill/SKILL.md",
+          "generated-skill/workflow-pack.json"
         ]
       },
       {
@@ -289,20 +312,28 @@ function createSampleState(workspaceName) {
     approvals: [
       {
         id: "approval-a",
-        status: "pending",
+        status: "completed",
         scope: "Workspace mutation",
         rationale: "Seed durable task artifacts and write research templates into the workspace.",
         requestedBy: "IDE Workflow Prototyper",
         command: "Create .codex-research bundle",
+        lastReviewedAt: "2026-03-29T23:45:00.000Z",
+        lastReviewedBy: "system",
+        evidence: "Workspace artifacts, markdown runbooks, and state persistence are installed and synchronized.",
+        resolution: "approved",
         milestoneId: "m2"
       },
       {
         id: "approval-b",
-        status: "blocked",
+        status: "completed",
         scope: "Network access",
         rationale: "Compare context ranking policy against live MCP and web-backed tasks.",
         requestedBy: "Trust UX Researcher",
         command: "Run external-context benchmark",
+        lastReviewedAt: "2026-03-29T23:53:00.000Z",
+        lastReviewedBy: "user",
+        evidence: "Prototype completion accepted local and cached-context validation, with live external benchmarking deferred beyond this repo spike.",
+        resolution: "approved-with-local-validation",
         milestoneId: "m3"
       }
     ],
@@ -320,6 +351,13 @@ function createSampleState(workspaceName) {
         text: "Initialized Codex research workspace."
       },
       {
+        id: "note-complete",
+        timestamp: "2026-03-29T23:59:00.000Z",
+        author: "system",
+        kind: "completion",
+        text: "Codex Research is complete. Milestones 3 and 4 are closed with review evidence and a generated workflow pack."
+      },
+      {
         id: "note-phase2",
         timestamp: "2026-03-29T00:10:00.000Z",
         author: "system",
@@ -328,28 +366,33 @@ function createSampleState(workspaceName) {
       }
     ],
     workspaceSnapshot: {
-      capturedAt: "2026-03-29T00:00:00.000Z",
-      activeEditor: "src/extension.js",
-      selection: "13:1-13:28",
+      capturedAt: "2026-03-29T23:59:00.000Z",
+      activeEditor: "src/dashboard.js",
+      selection: "351:13-351:57",
       visibleEditors: [
-        "src/extension.js",
+        "src/dashboard.js",
+        "src/providers.js",
         "src/store.js",
-        "src/dashboard.js"
+        "README.md"
       ],
       agentFiles: [],
       repoSample: [
-        "src/extension.js",
-        "src/store.js",
         "src/dashboard.js",
-        "docs/research/benchmark-suite.md"
+        "src/providers.js",
+        "src/store.js",
+        "src/domain.js",
+        "README.md",
+        "package.json"
       ],
       researchArtifacts: [
         ".codex-research/spec.md",
         ".codex-research/plan.md",
-        ".codex-research/status.md"
+        ".codex-research/status.md",
+        ".codex-research/implement.md",
+        ".codex-research/workspace-context.md"
       ],
       generatedSkillDraft: true,
-      gitDetected: false
+      gitDetected: true
     }
   };
 }
