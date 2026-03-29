@@ -25,6 +25,7 @@ function renderDashboardHtml(webview, state, meta) {
   const statusNotes = state.statusNotes?.slice(0, 6) ?? [];
   const snapshot = state.workspaceSnapshot ?? {};
   const diagnostics = meta?.diagnostics ?? {};
+  const projectContext = snapshot.projectContext ?? {};
 
   const cards = [
     { label: "Milestone completion", value: `${summary.completedMilestones}/${summary.milestoneCount}` },
@@ -84,7 +85,10 @@ function renderDashboardHtml(webview, state, meta) {
     .join("");
 
   const onboardingItems = [
-    "Seed the research workspace if `.codex-research/state.json` is missing.",
+    "Seed the workspace bundle if `.codex-research/state.json` is missing.",
+    projectContext.guidanceFiles?.length > 0
+      ? `Start with repo guidance: ${projectContext.guidanceFiles.join(", ")}.`
+      : "Start with local repo files like README.md, package.json, and current editors if no AGENTS.md is present.",
     "Refresh workspace context after changing files or switching focus.",
     "Use milestone, gate, approval, and subagent updates to keep the run inspectable.",
     "Open diagnostics whenever activation or auto-open behavior looks suspicious."
@@ -313,7 +317,7 @@ function renderDashboardHtml(webview, state, meta) {
   <body>
     <div class="shell">
       <section class="hero">
-        <div class="eyebrow">Trusted Autonomous Task Completion</div>
+        <div class="eyebrow">Project-Derived Workspace Bundle</div>
         <h1>${escapeHtml(state.taskArtifacts.title)}</h1>
         <p>${escapeHtml(state.taskArtifacts.objective)}</p>
         <div class="actions">

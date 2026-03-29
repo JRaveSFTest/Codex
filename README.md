@@ -13,7 +13,7 @@ This is a **VS Code extension**, not a PowerShell or terminal tool.
 
 ## What It Prototypes
 
-- Durable task memory through a `TaskArtifacts` bundle stored in `.codex-research/`
+- Durable task memory through a project-aware `TaskArtifacts` bundle stored in `.codex-research/`
 - IDE-native visibility for `SubagentRun` state, scope, and spend
 - Live-refreshable `ContextSource` ranking based on current workspace signals
 - Approval and `VerificationGate` views for safe autonomy experiments
@@ -80,7 +80,7 @@ On activation, the extension should:
 - log activation details and diagnostics context
 - auto-open the dashboard every time in the Extension Development Host
 - auto-open the dashboard once per workspace in a normally installed window
-- prompt you to seed `.codex-research/` if the research bundle is missing
+- prompt you to seed `.codex-research/` if the project-aware research bundle is missing
 
 ## Dashboard Workflow
 
@@ -99,7 +99,7 @@ From the dashboard you can:
 
 ## Generated Workspace Artifacts
 
-Seeding the workspace creates or maintains:
+Seeding the workspace creates or maintains a repo-derived bundle based on local files such as `AGENTS.md`, `README.md`, `package.json`, and AGENTS-linked docs when present:
 
 - `.codex-research/spec.md`
 - `.codex-research/plan.md`

@@ -238,7 +238,7 @@
   },
   "scripts": {
     "test": "node --test",
-    "check": "node --check src/extension.js && node --check src/dashboard.js && node --check src/providers.js && node --check src/store.js && node --check src/domain.js && node --check src/stateModel.js && node --check src/activationModel.js",
+    "check": "node --check src/extension.js && node --check src/dashboard.js && node --check src/providers.js && node --check src/store.js && node --check src/domain.js && node --check src/stateModel.js && node --check src/activationModel.js && node --check src/initialState.js && node --check src/projectContext.js",
     "package:vsix": "node scripts/package-vsix.cjs",
     "install:vsix": "node scripts/install-vsix.cjs",
     "uninstall:vsix": "node scripts/uninstall-vsix.cjs",

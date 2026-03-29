@@ -2,7 +2,8 @@
 
 const fs = require("node:fs/promises");
 const path = require("node:path");
-const { createSampleState } = require("./sampleState");
+const { createInitialState } = require("./initialState");
+const { captureProjectContext } = require("./projectContext");
 const {
   summarizeState,
   derivePriorityQueue,
@@ -58,7 +59,8 @@ async function fileExists(targetPath) {
 async function readPersistedState(rootPath) {
   const statePath = getStatePath(rootPath);
   if (!(await fileExists(statePath))) {
-    return normalizeState(createSampleState(path.basename(rootPath)));
+    const snapshot = await captureWorkspaceSnapshot(rootPath);
+    return applyWorkspaceSnapshot(normalizeState(createInitialState(path.basename(rootPath), snapshot.projectContext)), snapshot);
   }
 
   const content = await fs.readFile(statePath, "utf8");
@@ -68,7 +70,7 @@ async function readPersistedState(rootPath) {
 async function loadState() {
   const rootPath = getWorkspaceRoot();
   if (!rootPath) {
-    return normalizeState(createSampleState("No Workspace"));
+    return normalizeState(createInitialState("No Workspace"));
   }
 
   const baseState = await readPersistedState(rootPath);
@@ -96,8 +98,12 @@ async function seedWorkspaceArtifacts() {
     throw new Error("Open a workspace folder before seeding research artifacts.");
   }
 
+  const snapshot = await captureWorkspaceSnapshot(rootPath);
   const workspaceName = path.basename(rootPath);
-  const state = await hydrateState(normalizeState(createSampleState(workspaceName)), rootPath);
+  const state = applyWorkspaceSnapshot(
+    normalizeState(createInitialState(workspaceName, snapshot.projectContext)),
+    snapshot
+  );
   await writeArtifactsForState(rootPath, state);
   return state;
 }
@@ -345,17 +351,20 @@ async function captureWorkspaceSnapshot(rootPath) {
     path.join(RESEARCH_DIR, "implement.md"),
     path.join(RESEARCH_DIR, "workspace-context.md")
   ]);
+  const agentRelativePaths = agentFiles.map((uri) => toRelativePath(rootPath, uri.fsPath));
+  const projectContext = await captureProjectContext(rootPath, agentRelativePaths);
 
   return {
     capturedAt: new Date().toISOString(),
     activeEditor: activeEditor ? toRelativePath(rootPath, activeEditor.document.uri.fsPath) : null,
     selection: activeEditor ? formatSelection(activeEditor.selection) : null,
     visibleEditors,
-    agentFiles: agentFiles.map((uri) => toRelativePath(rootPath, uri.fsPath)),
+    agentFiles: agentRelativePaths,
     repoSample: await sampleWorkspaceFiles(rootPath, 12),
     researchArtifacts,
     generatedSkillDraft: await fileExists(path.join(rootPath, "generated-skill", "SKILL.md")),
-    gitDetected: await fileExists(path.join(rootPath, ".git"))
+    gitDetected: await fileExists(path.join(rootPath, ".git")),
+    projectContext
   };
 }
 
@@ -572,6 +581,15 @@ ${derivePriorityQueue(state).map((item) => `- [${item.kind}] ${item.title}`).joi
 function renderWorkspaceContext(state) {
   const snapshot = state.workspaceSnapshot;
   const contextStrategy = deriveContextStrategy(state);
+  const projectContext = snapshot.projectContext ?? {};
+  const guidanceItems = [
+    ...(projectContext.agentContexts ?? []).map((item) =>
+      item.summary ? `- ${item.path}: ${item.summary}` : `- ${item.path}`
+    ),
+    ...((projectContext.linkedDocs ?? []).map((item) =>
+      item.summary ? `- ${item.path}: ${item.summary}` : `- ${item.path}`
+    ))
+  ];
   return `# Workspace Context
 
 Captured: ${snapshot.capturedAt}
@@ -587,6 +605,23 @@ Captured: ${snapshot.capturedAt}
 - Git detected: ${snapshot.gitDetected ? "yes" : "no"}
 - Workflow pack generated: ${snapshot.generatedSkillDraft ? "yes" : "no"}
 - AGENTS files: ${snapshot.agentFiles.length > 0 ? snapshot.agentFiles.join(", ") : "none"}
+
+## Project Profile
+
+- Display name: ${projectContext.displayName ?? state.workspaceName}
+- Package name: ${projectContext.packageName ?? "none"}
+- Summary: ${projectContext.summary ?? "none"}
+- README summary: ${projectContext.readmeSummary ?? "none"}
+
+## Guidance Files
+
+${guidanceItems.length > 0 ? guidanceItems.join("\n") : "- none"}
+
+## Current Priorities
+
+${(projectContext.priorities ?? []).length > 0
+    ? projectContext.priorities.map((item) => `- ${item}`).join("\n")
+    : "- none captured from repo guidance"}
 
 ## Repo Sample
 

@@ -5,6 +5,7 @@ generated-skill/**
 reports/**
 scripts/**
 test/**
+src/sampleState.js
 .gitignore
 *.vsix
 dist/**

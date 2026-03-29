@@ -100,6 +100,9 @@ function deriveContextStrategy(state, options = {}) {
   if (!snapshot.gitDetected) {
     blindSpots.push("Git metadata is missing, so repo intent is weaker.");
   }
+  if (!snapshot.projectContext?.summary) {
+    blindSpots.push("No project summary was derived from AGENTS.md, README.md, or package.json.");
+  }
   if (!snapshot.generatedSkillDraft) {
     blindSpots.push("No reusable workflow draft is available yet.");
   }

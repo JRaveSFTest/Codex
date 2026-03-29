@@ -154,6 +154,11 @@ function activate(context) {
   }
 
   async function promptForStateUpdate(items, title, updateFn, currentStatusField, labelField) {
+    if (!items || items.length === 0) {
+      vscode.window.showInformationMessage("No tracked items are available for that update yet.");
+      return;
+    }
+
     const target = await vscode.window.showQuickPick(
       items.map((item) => ({
         label: item[labelField],
@@ -235,6 +240,11 @@ function activate(context) {
     const summary = deriveApprovalSummary(state);
     const availableApprovals = state.approvals.filter((item) => item.status !== "completed");
     const targets = availableApprovals.length > 0 ? availableApprovals : state.approvals;
+    if (targets.length === 0) {
+      vscode.window.showInformationMessage("No approvals are currently tracked in this workspace bundle.");
+      return;
+    }
+
     const target = await vscode.window.showQuickPick(
       targets.map((approval) => ({
         label: approval.scope,

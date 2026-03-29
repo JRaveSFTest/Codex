@@ -5,11 +5,35 @@ const STATUS_VALUES = ["pending", "in_progress", "blocked", "completed"];
 function normalizeState(inputState) {
   const state = clone(inputState);
   const generatedAt = state.generatedAt ?? new Date().toISOString();
+  const workspaceName = String(state.workspaceName ?? "Workspace");
 
   state.version = state.version ?? 2;
+  state.workspaceName = workspaceName;
   state.generatedAt = generatedAt;
   state.updatedAt = state.updatedAt ?? generatedAt;
-  state.taskArtifacts = state.taskArtifacts ?? {};
+  state.taskArtifacts = {
+    id: "task-main",
+    title: `${workspaceName} workspace bundle`,
+    objective: `Use repo-local context to guide work in ${workspaceName}.`,
+    constraints: [],
+    deliverables: [],
+    milestones: [],
+    continuity: {
+      mode: "local",
+      threadId: `workspace-${slugify(workspaceName)}`,
+      resumable: true
+    },
+    ...(state.taskArtifacts ?? {})
+  };
+  state.taskArtifacts.constraints = Array.isArray(state.taskArtifacts.constraints) ? state.taskArtifacts.constraints : [];
+  state.taskArtifacts.deliverables = Array.isArray(state.taskArtifacts.deliverables) ? state.taskArtifacts.deliverables : [];
+  state.taskArtifacts.milestones = Array.isArray(state.taskArtifacts.milestones) ? state.taskArtifacts.milestones : [];
+  state.taskArtifacts.continuity = {
+    mode: "local",
+    threadId: `workspace-${slugify(workspaceName)}`,
+    resumable: true,
+    ...(state.taskArtifacts.continuity ?? {})
+  };
   state.taskArtifacts.documents = {
     spec: ".codex-research/spec.md",
     plan: ".codex-research/plan.md",
@@ -19,6 +43,9 @@ function normalizeState(inputState) {
     ...(state.taskArtifacts.documents ?? {})
   };
   state.statusNotes = Array.isArray(state.statusNotes) ? state.statusNotes : [];
+  state.subagentRuns = Array.isArray(state.subagentRuns) ? state.subagentRuns : [];
+  state.recommendations = Array.isArray(state.recommendations) ? state.recommendations : [];
+  state.contextSources = Array.isArray(state.contextSources) ? state.contextSources : [];
   state.verificationGates = Array.isArray(state.verificationGates)
     ? state.verificationGates.map((gate) => ({
         lastReviewedAt: null,
@@ -46,6 +73,17 @@ function normalizeState(inputState) {
     researchArtifacts: [],
     generatedSkillDraft: false,
     gitDetected: false,
+    projectContext: {
+      displayName: workspaceName,
+      packageName: null,
+      packageDescription: null,
+      readmeSummary: null,
+      summary: null,
+      guidanceFiles: [],
+      priorities: [],
+      agentContexts: [],
+      linkedDocs: []
+    },
     ...(state.workspaceSnapshot ?? {})
   };
 
@@ -55,7 +93,7 @@ function normalizeState(inputState) {
       timestamp: generatedAt,
       author: "system",
       kind: "seed",
-      text: "Initialized Codex research workspace."
+      text: "Initialized the workspace bundle from repo context."
     });
   }
 
@@ -162,12 +200,34 @@ function applyWorkspaceSnapshot(inputState, snapshot) {
 
 function buildContextSources(snapshot, previousSources) {
   const previousById = new Map((previousSources ?? []).map((item) => [item.id, item]));
+  const projectContext = snapshot.projectContext ?? {};
   const activeEditorLabel = snapshot.activeEditor
     ? `Editor focus: ${snapshot.activeEditor}`
     : "Open files and active selection";
   const selectionLabel = snapshot.selection ? `Selection ${snapshot.selection}` : "No active selection";
-  const repoArtifacts = snapshot.repoSample.length > 0 ? snapshot.repoSample : ["No workspace file sample captured"];
-  const agentArtifacts = snapshot.agentFiles.length > 0 ? snapshot.agentFiles : ["No AGENTS.md found"];
+  const guidanceArtifacts =
+    projectContext.agentContexts?.length > 0
+      ? projectContext.agentContexts.map((item) => (item.summary ? `${item.path}: ${item.summary}` : item.path))
+      : [];
+  const linkedArtifacts =
+    projectContext.linkedDocs?.length > 0
+      ? projectContext.linkedDocs.map((item) => (item.summary ? `${item.path}: ${item.summary}` : item.path))
+      : [];
+  const repoArtifacts =
+    snapshot.repoSample.length > 0
+      ? [
+          ...(projectContext.summary ? [`Project summary: ${projectContext.summary}`] : []),
+          ...snapshot.repoSample
+        ]
+      : projectContext.summary
+        ? [`Project summary: ${projectContext.summary}`]
+        : ["No workspace file sample captured"];
+  const agentArtifacts =
+    guidanceArtifacts.length > 0 || linkedArtifacts.length > 0
+      ? [...guidanceArtifacts, ...linkedArtifacts].slice(0, 8)
+      : snapshot.agentFiles.length > 0
+        ? snapshot.agentFiles
+        : ["No AGENTS.md found"];
   const skillArtifacts = snapshot.generatedSkillDraft
     ? ["generated-skill/SKILL.md"]
     : ["No generated skill draft yet"];
@@ -189,22 +249,32 @@ function buildContextSources(snapshot, previousSources) {
     {
       id: "ctx-agents",
       kind: "agents",
-      label: snapshot.agentFiles.length > 0 ? "AGENTS instructions discovered" : "AGENTS instructions missing",
-      score: snapshot.agentFiles.length > 0 ? 9.2 : 4.4,
-      rationale: snapshot.agentFiles.length > 0
-        ? "Repo-level operating instructions are present and should strongly shape agent behavior."
-        : "No AGENTS.md was found, so repo-specific agent guidance is currently weak.",
-      pinned: snapshot.agentFiles.length > 0,
+      label:
+        snapshot.agentFiles.length > 0 || guidanceArtifacts.length > 0
+          ? "Repo instructions and linked docs"
+          : "AGENTS instructions missing",
+      score: snapshot.agentFiles.length > 0 || guidanceArtifacts.length > 0 ? 9.2 : 4.4,
+      rationale:
+        snapshot.agentFiles.length > 0 || guidanceArtifacts.length > 0
+          ? "Repo-local operating guidance was discovered and should shape planning before implementation."
+          : "No AGENTS.md was found, so repo-specific agent guidance is currently weak.",
+      pinned: snapshot.agentFiles.length > 0 || guidanceArtifacts.length > 0,
       artifacts: agentArtifacts
     },
     {
       id: "ctx-repo",
       kind: "repo",
-      label: snapshot.gitDetected ? "Repo structure and git-aware sample" : "Workspace structure sample",
+      label: projectContext.summary
+        ? "Repo structure and declared project context"
+        : snapshot.gitDetected
+          ? "Repo structure and git-aware sample"
+          : "Workspace structure sample",
       score: snapshot.repoSample.length > 0 ? 8.8 : 6.2,
-      rationale: snapshot.gitDetected
-        ? "Workspace structure and git presence reduce wrong-file edits and improve navigation."
-        : "A sampled workspace structure is available, but git metadata is not present.",
+      rationale: projectContext.summary
+        ? "The repo declares product or workflow intent directly through local files, reducing the chance of carrying over stale seed data."
+        : snapshot.gitDetected
+          ? "Workspace structure and git presence reduce wrong-file edits and improve navigation."
+          : "A sampled workspace structure is available, but git metadata is not present.",
       pinned: false,
       artifacts: repoArtifacts
     },
@@ -289,6 +359,13 @@ function createId(prefix) {
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function slugify(value) {
+  return String(value ?? "workspace")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "workspace";
 }
 
 module.exports = {
