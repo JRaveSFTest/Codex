@@ -1,0 +1,114 @@
+{
+  "name": "codex-agent-research",
+  "displayName": "Codex Agent Research",
+  "description": "VS Code extension prototype for durable task memory, agent visibility, context provenance, and safe autonomy research.",
+  "version": "0.1.0",
+  "publisher": "local",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:codexResearch.openDashboard",
+    "onCommand:codexResearch.seedResearchWorkspace",
+    "onCommand:codexResearch.exportSnapshot",
+    "onCommand:codexResearch.promoteWorkflowToSkill",
+    "onView:codexResearch.taskArtifacts",
+    "onView:codexResearch.subagentRuns",
+    "onView:codexResearch.contextSources",
+    "onView:codexResearch.approvals"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codexResearch",
+          "title": "Codex Research",
+          "icon": "media/beaker.svg"
+        }
+      ]
+    },
+    "views": {
+      "codexResearch": [
+        {
+          "id": "codexResearch.taskArtifacts",
+          "name": "Task Artifacts"
+        },
+        {
+          "id": "codexResearch.subagentRuns",
+          "name": "Subagents"
+        },
+        {
+          "id": "codexResearch.contextSources",
+          "name": "Context"
+        },
+        {
+          "id": "codexResearch.approvals",
+          "name": "Approvals"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "codexResearch.openDashboard",
+        "title": "Codex Research: Open Dashboard"
+      },
+      {
+        "command": "codexResearch.refreshViews",
+        "title": "Codex Research: Refresh Views"
+      },
+      {
+        "command": "codexResearch.seedResearchWorkspace",
+        "title": "Codex Research: Seed Research Workspace"
+      },
+      {
+        "command": "codexResearch.exportSnapshot",
+        "title": "Codex Research: Export Snapshot"
+      },
+      {
+        "command": "codexResearch.promoteWorkflowToSkill",
+        "title": "Codex Research: Promote Workflow To Skill Draft"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "codexResearch.refreshViews",
+          "when": "view == codexResearch.taskArtifacts || view == codexResearch.subagentRuns || view == codexResearch.contextSources || view == codexResearch.approvals",
+          "group": "navigation"
+        },
+        {
+          "command": "codexResearch.openDashboard",
+          "when": "view == codexResearch.taskArtifacts",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "codexResearch.openDashboard",
+          "when": "workspaceFolderCount >= 0"
+        },
+        {
+          "command": "codexResearch.seedResearchWorkspace",
+          "when": "workspaceFolderCount >= 0"
+        },
+        {
+          "command": "codexResearch.exportSnapshot",
+          "when": "workspaceFolderCount >= 0"
+        },
+        {
+          "command": "codexResearch.promoteWorkflowToSkill",
+          "when": "workspaceFolderCount >= 0"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check src/extension.js && node --check src/dashboard.js && node --check src/providers.js && node --check src/store.js && node --check src/domain.js"
+  }
+}
