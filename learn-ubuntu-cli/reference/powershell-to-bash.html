@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference · PowerShell → Bash</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+
+<h1>PowerShell → Bash</h1>
+<p class="subtitle">Reference sheet · Ubuntu on WSL · keep this open in a tab</p>
+
+<p class="thesis">
+You know what you want to do. This sheet is the spelling. Read the left column
+as "the thing my hands want to type", the right as "what Ubuntu understands".
+</p>
+
+<div class="filter-bar no-print">
+  <input type="search" data-table-filter="cheatsheet"
+         placeholder="Filter — try “copy”, “process”, or “grep”" aria-label="Filter the reference sheet">
+  <span class="count" data-filter-count="cheatsheet"></span>
+</div>
+
+<h2>Six differences that explain most of the rest</h2>
+
+<ol>
+  <li><strong>PowerShell pipes objects; Bash pipes text.</strong> In PowerShell
+    <code>| Where-Object Name -like '*.log'</code> filters real objects with
+    properties. In Bash a pipe carries a stream of bytes, and the tool on the
+    right re-parses it as lines and columns. This is why Bash has so many small
+    text tools — <code>grep</code>, <code>cut</code>, <code>awk</code>,
+    <code>sort</code> — where PowerShell has one object model.</li>
+  <li><strong>Case matters.</strong> <code>README.md</code> and
+    <code>readme.md</code> are two different files on the Linux side.</li>
+  <li><strong>Flags are terse.</strong> One dash plus one letter
+    (<code>-l</code>), or two dashes plus a word (<code>--long</code>). Single
+    letters combine: <code>ls -la</code> is <code>ls -l -a</code>. There is no
+    <code>-Recurse</code>; there is <code>-r</code>, and only if that command
+    happens to have one.</li>
+  <li><strong>The shell expands wildcards, not the command.</strong>
+    <code>rm *.log</code> means Bash replaces <code>*.log</code> with the list
+    of matching filenames <em>before</em> <code>rm</code> runs. If nothing
+    matches, the command sees the literal <code>*.log</code>.</li>
+  <li><strong>There is no Recycle Bin and no <code>-WhatIf</code>.</strong>
+    <code>rm</code> is immediate and permanent. Look before you delete;
+    <code>ls</code> the glob first, then swap <code>ls</code> for
+    <code>rm</code>.</li>
+  <li><strong>Quoting works the way you already expect.</strong> Double quotes
+    expand <code>$VARIABLES</code>, single quotes are literal — same convention
+    as PowerShell. Always quote paths containing spaces:
+    <code>cd "/mnt/c/Program Files"</code>.</li>
+</ol>
+
+<h2>Navigating and looking around</h2>
+
+<div class="table-wrap">
+<table data-filterable="cheatsheet">
+  <thead><tr><th>PowerShell</th><th>Bash / Ubuntu</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>Get-Location</code>, <code>pwd</code></td><td><code>pwd</code></td><td>Same name, same job.</td></tr>
+    <tr><td><code>Set-Location X</code>, <code>cd X</code></td><td><code>cd X</code></td><td><code>cd</code> alone → home. <code>cd -</code> → previous directory. <code>cd ..</code> → up one.</td></tr>
+    <tr><td><code>Get-ChildItem</code>, <code>ls</code>, <code>dir</code></td><td><code>ls</code></td><td><code>ls -l</code> details, <code>ls -a</code> hidden, <code>ls -lh</code> human sizes. <code>ls -la</code> is the everyday one.</td></tr>
+    <tr><td><code>Get-ChildItem -Force</code></td><td><code>ls -a</code></td><td>"Hidden" on Linux just means the name starts with a dot.</td></tr>
+    <tr><td><code>Get-ChildItem -Recurse</code></td><td><code>find . -name '*.log'</code></td><td><code>find</code> is the real recursive tool; <code>ls -R</code> exists but is rarely what you want.</td></tr>
+    <tr><td><code>Test-Path X</code></td><td><code>ls X</code> or <code>test -e X</code></td><td>Interactively, just <code>ls</code> it. <code>test</code> is for scripts.</td></tr>
+    <tr><td><code>Clear-Host</code>, <code>cls</code></td><td><code>clear</code></td><td><kbd>Ctrl</kbd>+<kbd>L</kbd> is faster.</td></tr>
+    <tr><td><code>Get-History</code></td><td><code>history</code></td><td><kbd>Ctrl</kbd>+<kbd>R</kbd> searches history interactively — learn this one early.</td></tr>
+    <tr><td><code>Get-Command foo</code></td><td><code>type foo</code></td><td>Says whether it's a file, alias, function, or builtin. <code>type -a</code> shows all matches.</td></tr>
+    <tr><td><code>Get-Help foo</code>, <code>man foo</code></td><td><code>man foo</code></td><td>Also <code>foo --help</code> for a quick summary. <code>q</code> quits the pager.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Files and directories</h2>
+
+<div class="table-wrap">
+<table data-filterable="cheatsheet">
+  <thead><tr><th>PowerShell</th><th>Bash / Ubuntu</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>New-Item -ItemType Directory X</code>, <code>mkdir X</code></td><td><code>mkdir X</code></td><td><code>mkdir -p a/b/c</code> to create intermediate directories.</td></tr>
+    <tr><td><code>New-Item X</code>, <code>ni X</code></td><td><code>touch X</code></td><td>Creates an empty file, or updates the timestamp if it exists.</td></tr>
+    <tr><td><code>Copy-Item A B</code>, <code>cp</code></td><td><code>cp A B</code></td><td>Needs <code>cp -r</code> for directories, or it refuses.</td></tr>
+    <tr><td><code>Move-Item A B</code>, <code>Rename-Item</code></td><td><code>mv A B</code></td><td>One command for both move and rename — renaming <em>is</em> moving.</td></tr>
+    <tr><td><code>Remove-Item X</code>, <code>rm</code></td><td><code>rm X</code></td><td><code>rm -r</code> for directories. Permanent. No confirmation unless you pass <code>-i</code>.</td></tr>
+    <tr><td><code>Remove-Item -Recurse -Force</code></td><td><code>rm -rf X</code></td><td>The sharpest tool here. Check <code>pwd</code> first, every time.</td></tr>
+    <tr><td><code>Get-Content X</code>, <code>cat X</code></td><td><code>cat X</code></td><td>For anything long use <code>less X</code> (arrows to scroll, <code>q</code> to quit).</td></tr>
+    <tr><td><code>Get-Content X -Head 20</code></td><td><code>head -20 X</code></td><td><code>tail -20 X</code> for the end.</td></tr>
+    <tr><td><code>Get-Content X -Wait</code></td><td><code>tail -f X</code></td><td>Follow a log live. <kbd>Ctrl</kbd>+<kbd>C</kbd> to stop.</td></tr>
+    <tr><td><code>Set-Content X "hi"</code></td><td><code>echo hi &gt; X</code></td><td><code>&gt;</code> overwrites.</td></tr>
+    <tr><td><code>Add-Content X "hi"</code></td><td><code>echo hi &gt;&gt; X</code></td><td><code>&gt;&gt;</code> appends.</td></tr>
+    <tr><td><code>Get-Item X | % Length</code></td><td><code>du -h X</code></td><td><code>du -sh .</code> for the size of a whole directory.</td></tr>
+    <tr><td>(open in editor)</td><td><code>nano X</code></td><td>Beginner-friendly terminal editor; shortcuts are listed at the bottom of the screen. <code>code X</code> opens VS Code instead.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Searching and text</h2>
+
+<div class="table-wrap">
+<table data-filterable="cheatsheet">
+  <thead><tr><th>PowerShell</th><th>Bash / Ubuntu</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>Select-String "x" file</code></td><td><code>grep "x" file</code></td><td>The workhorse. <code>grep -i</code> ignores case, <code>-n</code> shows line numbers.</td></tr>
+    <tr><td><code>Select-String -Path *.ts -Pattern x</code></td><td><code>grep -rn "x" .</code></td><td><code>-r</code> recurses into subdirectories.</td></tr>
+    <tr><td><code>Where-Object { ... }</code></td><td><code>grep</code>, <code>awk</code></td><td>No object properties to test — you're filtering lines of text.</td></tr>
+    <tr><td><code>Select-Object -First 10</code></td><td><code>head -10</code></td><td>Usually at the end of a pipe.</td></tr>
+    <tr><td><code>Sort-Object</code></td><td><code>sort</code></td><td>Sorts as text by default: "10" sorts before "9". Use <code>sort -n</code> for numbers.</td></tr>
+    <tr><td><code>Sort-Object -Unique</code></td><td><code>sort -u</code></td><td><code>uniq</code> alone only collapses <em>adjacent</em> duplicates — sort first.</td></tr>
+    <tr><td><code>Measure-Object -Line</code></td><td><code>wc -l</code></td><td><code>wc -w</code> words, <code>wc -c</code> bytes.</td></tr>
+    <tr><td><code>ForEach-Object { ... }</code></td><td><code>xargs</code></td><td>e.g. <code>grep -rl TODO . | xargs wc -l</code>. Different model — read it twice before running it.</td></tr>
+    <tr><td><code>-replace</code></td><td><code>sed 's/old/new/g'</code></td><td>Prints the result; add <code>-i</code> to edit the file in place.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Variables, environment, and profile</h2>
+
+<div class="table-wrap">
+<table data-filterable="cheatsheet">
+  <thead><tr><th>PowerShell</th><th>Bash / Ubuntu</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>$env:PATH</code></td><td><code>$PATH</code></td><td>No <code>env:</code> prefix. Read it with <code>echo $PATH | tr ':' '\n'</code>.</td></tr>
+    <tr><td><code>$env:FOO = "bar"</code></td><td><code>export FOO=bar</code></td><td>No spaces around <code>=</code>. Without <code>export</code>, child processes won't see it.</td></tr>
+    <tr><td><code>Get-ChildItem Env:</code></td><td><code>env</code></td><td><code>printenv FOO</code> for one variable.</td></tr>
+    <tr><td><code>$PROFILE</code></td><td><code>~/.bashrc</code></td><td>Where your aliases and PATH edits live. Apply changes with <code>source ~/.bashrc</code> or a new terminal.</td></tr>
+    <tr><td><code>Set-Alias ll "ls -l"</code></td><td><code>alias ll='ls -alF'</code></td><td>Put it in <code>~/.bashrc</code> to make it permanent. <code>alias</code> alone lists them all.</td></tr>
+    <tr><td><code>$HOME</code></td><td><code>$HOME</code> or <code>~</code></td><td><code>~</code> works in paths: <code>ls ~/code</code>.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Processes and jobs</h2>
+
+<div class="table-wrap">
+<table data-filterable="cheatsheet">
+  <thead><tr><th>PowerShell</th><th>Bash / Ubuntu</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>Get-Process</code></td><td><code>ps aux</code></td><td><code>ps aux | grep node</code> to find one. <code>htop</code> for an interactive view (<code>sudo apt install htop</code>).</td></tr>
+    <tr><td><code>Stop-Process -Id 123</code></td><td><code>kill 123</code></td><td><code>kill -9 123</code> only if it ignores you.</td></tr>
+    <tr><td><code>Stop-Process -Name node</code></td><td><code>pkill node</code></td><td>Matches by name. Check with <code>pgrep -a node</code> first.</td></tr>
+    <tr><td><code>Start-Process X</code></td><td><code>X &amp;</code></td><td>Trailing <code>&amp;</code> runs it in the background. <code>jobs</code> lists them, <code>fg</code> brings one back.</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>Same. <kbd>Ctrl</kbd>+<kbd>Z</kbd> suspends instead; <code>fg</code> resumes.</td></tr>
+    <tr><td><code>Measure-Command { ... }</code></td><td><code>time ...</code></td><td>Prefix the command: <code>time npm test</code>.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Installing software and system control</h2>
+
+<div class="table-wrap">
+<table data-filterable="cheatsheet">
+  <thead><tr><th>PowerShell / Windows</th><th>Bash / Ubuntu</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>winget install X</code></td><td><code>sudo apt install X</code></td><td>Run <code>sudo apt update</code> first to refresh the package index.</td></tr>
+    <tr><td><code>winget upgrade --all</code></td><td><code>sudo apt update &amp;&amp; sudo apt upgrade</code></td><td>The routine Ubuntu maintenance pair.</td></tr>
+    <tr><td><code>winget uninstall X</code></td><td><code>sudo apt remove X</code></td><td><code>apt purge</code> also removes config files.</td></tr>
+    <tr><td>"Run as Administrator"</td><td><code>sudo &lt;command&gt;</code></td><td>Per-command, not per-window. It asks for <em>your</em> password, not an admin one.</td></tr>
+    <tr><td><code>Get-Service</code>, <code>Start-Service</code></td><td><code>systemctl status X</code>, <code>sudo systemctl start X</code></td><td>On WSL, systemd needs to be enabled in <code>/etc/wsl.conf</code> — check before assuming it's broken.</td></tr>
+    <tr><td><code>Get-Volume</code></td><td><code>df -h</code></td><td>Disk free, human-readable.</td></tr>
+    <tr><td><code>$PSVersionTable</code></td><td><code>lsb_release -a</code></td><td>Which Ubuntu release you're on. <code>uname -a</code> for the kernel.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Network</h2>
+
+<div class="table-wrap">
+<table data-filterable="cheatsheet">
+  <thead><tr><th>PowerShell</th><th>Bash / Ubuntu</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td><code>Invoke-WebRequest URL</code></td><td><code>curl URL</code></td><td>Real curl. <code>curl -O URL</code> saves to a file; <code>curl -I URL</code> shows headers only.</td></tr>
+    <tr><td><code>Invoke-WebRequest -OutFile</code></td><td><code>wget URL</code></td><td>Either works; <code>wget</code> is the download-shaped one.</td></tr>
+    <tr><td><code>Invoke-RestMethod</code></td><td><code>curl -s URL | jq</code></td><td><code>jq</code> is the JSON tool (<code>sudo apt install jq</code>).</td></tr>
+    <tr><td><code>Test-NetConnection host -Port 443</code></td><td><code>curl -I https://host</code></td><td>Practical check. <code>ping host</code> for reachability only.</td></tr>
+    <tr><td><code>Resolve-DnsName host</code></td><td><code>dig host</code></td><td><code>sudo apt install dnsutils</code> if missing.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Crossing back into Windows (WSL only)</h2>
+
+<p>
+These have no PowerShell equivalent — they exist because you're in WSL. All are
+documented by Microsoft.<span class="cite"> <a
+href="https://learn.microsoft.com/en-us/windows/wsl/filesystems">[MS: Working
+across file systems]</a></span>
+</p>
+
+<div class="table-wrap">
+<table data-filterable="cheatsheet">
+  <thead><tr><th>Command</th><th>Does</th></tr></thead>
+  <tbody>
+    <tr><td><code>explorer.exe .</code></td><td>Opens the current Linux directory in Windows File Explorer.</td></tr>
+    <tr><td><code>code .</code></td><td>Opens the current directory in VS Code on Windows, connected back into WSL.</td></tr>
+    <tr><td><code>echo hi | clip.exe</code></td><td>Puts text on the Windows clipboard.</td></tr>
+    <tr><td><code>wslpath -w /home/you</code></td><td>Converts a Linux path to its Windows form. <code>-u</code> converts the other way.</td></tr>
+    <tr><td><code>powershell.exe -c "Get-Date"</code></td><td>Runs a PowerShell command from Bash — you can pipe into and out of it.</td></tr>
+    <tr><td><code>wsl.exe --shutdown</code></td><td>Restarts WSL. Run this <em>from PowerShell</em>, not from inside Ubuntu.<span class="cite"> <a href="https://learn.microsoft.com/en-us/windows/wsl/basic-commands">[MS: Basic commands for WSL]</a></span></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>False friends</h2>
+
+<p>Commands that exist in both worlds and mean different things.</p>
+
+<div class="table-wrap">
+<table data-filterable="cheatsheet">
+  <thead><tr><th>Looks like</th><th>What actually happens in Bash</th></tr></thead>
+  <tbody>
+    <tr><td><code>ls -Force</code></td><td>Error. PowerShell-style flags don't exist. You want <code>ls -a</code>.</td></tr>
+    <tr><td><code>dir</code></td><td>Genuinely runs — Ubuntu ships a <code>dir</code> — but it isn't <code>ls</code>, and nobody uses it. Use <code>ls</code>.</td></tr>
+    <tr><td><code>curl</code></td><td>The real curl, with entirely different syntax from the PowerShell 5.1 alias for <code>Invoke-WebRequest</code>. Anything you remember about <code>-UseBasicParsing</code> is gone.</td></tr>
+    <tr><td><code>sort</code></td><td>Sorts lines of text lexically, not objects. <code>10</code> comes before <code>9</code> unless you pass <code>-n</code>.</td></tr>
+    <tr><td><code>cat</code></td><td>Dumps the whole file to the terminal with no pager. On a large file, use <code>less</code>.</td></tr>
+    <tr><td><code>rm</code></td><td>Immediate and permanent. No Recycle Bin, no <code>-WhatIf</code>, no undo.</td></tr>
+    <tr><td><code>cp dir/ dest/</code></td><td>Refuses — "omitting directory". Directories need <code>cp -r</code>.</td></tr>
+    <tr><td><code>mkdir a/b/c</code></td><td>Fails unless <code>a/b</code> already exists. Use <code>mkdir -p</code>.</td></tr>
+    <tr><td>Command with no output</td><td>Success. Unix tools stay silent when things go right — no news is good news.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="note no-print">
+  <span class="label">Not sure what a command will do?</span>
+  <p>
+    Paste it into <a href="https://explainshell.com/">explainshell.com</a> and
+    it breaks the line apart flag by flag against the man pages. Worth doing
+    with anything you copied from the internet — or from an AI agent — before
+    you press Enter. Or just ask me; I'm your teacher for this, and "what does
+    this actually do?" is always a fair question.
+  </p>
+</div>
+
+<footer>
+  Reference sheet · <a href="../lessons/0001-where-am-i-and-where-do-commands-come-from.html">Lesson 1</a> ·
+  <a href="../MISSION.md">Mission</a> ·
+  <a href="../RESOURCES.md">Resources</a><br>
+  Sources: <a href="https://www.gnu.org/software/bash/manual/bash.html">GNU Bash manual</a> ·
+  <a href="https://manpages.ubuntu.com/">Ubuntu manpages</a> ·
+  <a href="https://learn.microsoft.com/en-us/windows/wsl/filesystems">WSL file systems</a> ·
+  <a href="https://ubuntu.com/tutorials/command-line-for-beginners">Ubuntu CLI tutorial</a>
+</footer>
+
+<script src="../assets/table-filter.js"></script>
+</body>
+</html>

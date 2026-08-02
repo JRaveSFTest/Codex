@@ -1,0 +1,364 @@
+/* ==========================================================================
+   lesson.css — the shared stylesheet for this teaching workspace.
+   Every lesson and reference document links this file. Change it here and
+   the whole course changes together.
+
+   Design goals: Tufte-ish. Long measure, generous margins, serif prose,
+   monospace only where it means "this is literal terminal text".
+   Prints cleanly on A4/Letter. Works in light and dark.
+   ========================================================================== */
+
+:root {
+  --ink:        #1a1a18;
+  --ink-soft:   #55534d;
+  --ink-faint:  #8a877f;
+  --paper:      #fffff8;   /* Tufte's off-white */
+  --rule:       #d8d5cb;
+  --accent:     #7a2e14;   /* rust — used sparingly, for links and marks */
+  --accent-bg:  #f3ece6;
+  --term-bg:    #1e1c1a;
+  --term-ink:   #e8e4dc;
+  --ok:         #1f6f43;
+  --ok-bg:      #e6f2ea;
+  --no:         #99321f;
+  --no-bg:      #f7e8e4;
+  --measure:    38rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink:       #e6e3db;
+    --ink-soft:  #a8a49a;
+    --ink-faint: #75726a;
+    --paper:     #161513;
+    --rule:      #35322c;
+    --accent:    #e0916a;
+    --accent-bg: #2a211b;
+    --term-bg:   #0e0d0c;
+    --term-ink:  #e8e4dc;
+    --ok:        #6fcb94;
+    --ok-bg:     #172a20;
+    --no:        #e88b74;
+    --no-bg:     #2c1b17;
+  }
+}
+
+/* The viewer's explicit theme toggle must beat the OS preference. */
+:root[data-theme="light"] {
+  --ink: #1a1a18; --ink-soft: #55534d; --ink-faint: #8a877f;
+  --paper: #fffff8; --rule: #d8d5cb; --accent: #7a2e14; --accent-bg: #f3ece6;
+  --term-bg: #1e1c1a; --term-ink: #e8e4dc;
+  --ok: #1f6f43; --ok-bg: #e6f2ea; --no: #99321f; --no-bg: #f7e8e4;
+}
+:root[data-theme="dark"] {
+  --ink: #e6e3db; --ink-soft: #a8a49a; --ink-faint: #75726a;
+  --paper: #161513; --rule: #35322c; --accent: #e0916a; --accent-bg: #2a211b;
+  --term-bg: #0e0d0c; --term-ink: #e8e4dc;
+  --ok: #6fcb94; --ok-bg: #172a20; --no: #e88b74; --no-bg: #2c1b17;
+}
+
+/* --------------------------------------------------------------- skeleton */
+
+html { font-size: 17px; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: Palatino, "Palatino Linotype", "Book Antiqua", Georgia,
+               "Iowan Old Style", "Times New Roman", serif;
+  line-height: 1.6;
+  margin: 0 auto;
+  padding: 4rem 2rem 8rem;
+  max-width: 52rem;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Prose runs at a comfortable measure; full-width elements opt out. */
+p, ul, ol, dl, blockquote, .note, .quiz, .checklist, .steps {
+  max-width: var(--measure);
+}
+
+/* ------------------------------------------------------------- typography */
+
+h1, h2, h3 { font-weight: 400; line-height: 1.2; }
+
+h1 {
+  font-size: 2.4rem;
+  margin: 0 0 .3rem;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  font-style: italic;
+  color: var(--ink-soft);
+  font-size: 1.15rem;
+  margin: 0 0 2.5rem;
+  max-width: var(--measure);
+}
+
+h2 {
+  font-size: 1.5rem;
+  margin: 3rem 0 .8rem;
+  padding-top: .8rem;
+  border-top: 1px solid var(--rule);
+}
+
+h3 { font-size: 1.15rem; margin: 2rem 0 .5rem; font-weight: 600; }
+
+p { margin: 0 0 1.1rem; }
+
+a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--rule); }
+a:hover { border-bottom-color: var(--accent); }
+
+strong { font-weight: 600; }
+
+/* The one-sentence thesis at the top of a lesson. */
+.thesis {
+  font-size: 1.2rem;
+  border-left: 3px solid var(--accent);
+  padding: .2rem 0 .2rem 1.2rem;
+  margin: 0 0 2rem;
+  color: var(--ink);
+}
+
+/* Marginal asides. Collapse inline on narrow screens. */
+.aside {
+  float: right;
+  clear: right;
+  width: 12rem;
+  margin: .4rem -14rem .8rem 0;
+  font-size: .82rem;
+  line-height: 1.45;
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+.note {
+  background: var(--accent-bg);
+  border-left: 3px solid var(--accent);
+  padding: .9rem 1.1rem;
+  margin: 1.6rem 0;
+  font-size: .95rem;
+}
+.note p:last-child { margin-bottom: 0; }
+.note .label {
+  display: block;
+  font-variant: small-caps;
+  letter-spacing: .06em;
+  font-size: .85rem;
+  color: var(--accent);
+  margin-bottom: .3rem;
+}
+
+/* ------------------------------------------------------------- code, term */
+
+code, kbd, samp, pre, .cmd {
+  font-family: "Cascadia Mono", "JetBrains Mono", "SF Mono", Menlo, Consolas,
+               "DejaVu Sans Mono", monospace;
+}
+
+code {
+  font-size: .88em;
+  background: var(--accent-bg);
+  padding: .1em .35em;
+  border-radius: 3px;
+  word-break: break-word;
+}
+
+/* A terminal transcript. `$` prompts are added by the markup, not CSS,
+   so copy-paste stays honest about what is prompt and what is output. */
+pre.term {
+  background: var(--term-bg);
+  color: var(--term-ink);
+  padding: 1rem 1.1rem;
+  border-radius: 5px;
+  overflow-x: auto;
+  font-size: .84rem;
+  line-height: 1.55;
+  margin: 1.3rem 0;
+  max-width: 100%;
+}
+pre.term code { background: none; padding: 0; color: inherit; font-size: inherit; }
+pre.term .p  { color: #7fb0d8; }              /* prompt */
+pre.term .o  { color: #9b968c; }              /* output / comment */
+pre.term .hl { color: #ffd479; font-weight: 600; }
+
+/* ----------------------------------------------------------------- tables */
+
+.table-wrap { overflow-x: auto; margin: 1.5rem 0; }
+
+table {
+  border-collapse: collapse;
+  font-size: .92rem;
+  width: 100%;
+}
+th, td {
+  text-align: left;
+  padding: .5rem .8rem .5rem 0;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+th {
+  font-weight: 600;
+  font-variant: small-caps;
+  letter-spacing: .04em;
+  border-bottom: 2px solid var(--ink-soft);
+  white-space: nowrap;
+}
+tbody tr:hover { background: var(--accent-bg); }
+td code { white-space: nowrap; }
+
+/* ------------------------------------------------------------- checklists */
+
+.checklist { list-style: none; padding: 0; margin: 1.5rem 0; }
+.checklist li {
+  display: flex;
+  gap: .7rem;
+  align-items: flex-start;
+  padding: .6rem 0;
+  border-bottom: 1px dotted var(--rule);
+}
+.checklist input[type="checkbox"] {
+  margin-top: .35rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: none;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.checklist label { cursor: pointer; }
+.checklist input:checked + label { color: var(--ink-faint); }
+.checklist input:checked + label .task { text-decoration: line-through; }
+.checklist .task { display: block; }
+.checklist .expect {
+  display: block;
+  font-size: .85rem;
+  color: var(--ink-soft);
+  font-style: italic;
+  margin-top: .15rem;
+}
+.checklist-progress {
+  font-size: .85rem;
+  color: var(--ink-soft);
+  font-style: italic;
+  margin-top: .8rem;
+}
+
+/* ------------------------------------------------------------------ quiz */
+
+.quiz {
+  margin: 2rem 0;
+  padding: 1.2rem 1.3rem;
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+}
+.quiz + .quiz { margin-top: 1.2rem; }
+.quiz-q { font-weight: 600; margin: 0 0 .9rem; }
+.quiz-options { list-style: none; padding: 0; margin: 0; display: grid; gap: .45rem; }
+.quiz-options button {
+  font: inherit;
+  font-size: .93rem;
+  text-align: left;
+  width: 100%;
+  padding: .55rem .8rem;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.quiz-options button:hover:not([disabled]) { border-color: var(--accent); }
+.quiz-options button[disabled] { cursor: default; }
+.quiz-options button.is-right { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); }
+.quiz-options button.is-wrong { background: var(--no-bg); border-color: var(--no); color: var(--no); }
+.quiz-feedback {
+  margin: .9rem 0 0;
+  font-size: .9rem;
+  color: var(--ink-soft);
+  border-left: 2px solid var(--rule);
+  padding-left: .8rem;
+}
+.quiz-score {
+  font-style: italic;
+  color: var(--ink-soft);
+  font-size: .9rem;
+}
+
+/* ---------------------------------------------------------- filter widget */
+
+.filter-bar { margin: 1.5rem 0 2rem; max-width: var(--measure); }
+.filter-bar input[type="search"] {
+  font: inherit;
+  font-size: .95rem;
+  width: 100%;
+  padding: .55rem .8rem;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+}
+.filter-bar input[type="search"]:focus { outline: none; border-color: var(--accent); }
+.filter-bar .count {
+  display: block;
+  font-size: .82rem;
+  font-style: italic;
+  color: var(--ink-soft);
+  margin-top: .35rem;
+  min-height: 1.1em;
+}
+
+/* -------------------------------------------------------------- footering */
+
+.next {
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule);
+}
+
+footer {
+  margin-top: 4rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule);
+  font-size: .85rem;
+  color: var(--ink-faint);
+  max-width: var(--measure);
+}
+footer a { color: var(--ink-soft); }
+
+.cite { font-size: .85rem; color: var(--ink-soft); }
+
+/* ----------------------------------------------------------- narrow, print */
+
+@media (max-width: 1100px) {
+  .aside {
+    float: none;
+    width: auto;
+    margin: 1rem 0;
+    max-width: var(--measure);
+    padding-left: .9rem;
+    border-left: 1px solid var(--rule);
+  }
+}
+
+@media (max-width: 640px) {
+  html { font-size: 16px; }
+  body { padding: 2rem 1.1rem 5rem; }
+  h1 { font-size: 1.9rem; }
+}
+
+@media print {
+  :root {
+    --ink: #000; --ink-soft: #444; --ink-faint: #666;
+    --paper: #fff; --rule: #ccc; --accent: #000; --accent-bg: #f2f2f2;
+    --term-bg: #f4f4f4; --term-ink: #000;
+  }
+  body { padding: 0; max-width: none; font-size: 11pt; }
+  pre.term { border: 1px solid #ccc; }
+  pre.term .p, pre.term .o, pre.term .hl { color: #444; }
+  a { border: none; }
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: .75em; color: #555; }
+  .quiz-options button { border: 1px solid #999; }
+  h2 { break-after: avoid; }
+  .quiz, .checklist li, table { break-inside: avoid; }
+  .no-print { display: none; }
+}

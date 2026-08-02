@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 1 · Where am I, and where do commands come from?</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+
+<h1>Where am I, and where do commands come from?</h1>
+<p class="subtitle">Lesson 1 · Ubuntu on WSL · about 15 minutes</p>
+
+<p class="thesis">
+Almost every early WSL frustration is one of two questions in disguise:
+<em>which filesystem am I standing in?</em> and <em>where is Bash looking for
+this command?</em> Answer both and <code>command not found</code> stops being a
+wall and becomes a diagnosis.
+</p>
+
+<p>
+You already know PowerShell. That is an asset and a trap. The asset: you know
+what a shell <em>is</em> — a program that reads a line, resolves a name, runs
+it. The trap: in PowerShell, <code>ls</code>, <code>dir</code> and
+<code>Get-ChildItem</code> are all the same thing, because PowerShell ships
+aliases for them. In Bash they are not the same thing at all, and two of them
+don't exist. Your muscle memory will keep proposing commands that Ubuntu has
+never heard of, and the error message won't explain why.
+</p>
+
+<p>
+This lesson gives you the two mental models that make the error message
+explain itself. It is the foundation for the next three things on your
+mission — VS Code, Claude Code, and Docker — because each of those is
+installed <em>somewhere</em>, on <em>some</em> filesystem, and found (or not
+found) through the same lookup rule.
+</p>
+
+<h2>1 · Two filesystems, one prompt</h2>
+
+<p>
+WSL gives you a real Linux filesystem. Its root is <code>/</code>, and your
+home directory is <code>/home/&lt;your-name&gt;</code> — nothing to do with
+<code>C:\Users\</code>. Your Windows drives are then <em>mounted into</em> that
+Linux tree: Microsoft documents that Windows drives appear under
+<code>/mnt/</code>, so <code>C:\Users\you\Project</code> is reachable from Bash
+as <code>/mnt/c/Users/you/Project</code>.<span class="cite"> <a
+href="https://learn.microsoft.com/en-us/windows/wsl/filesystems">[MS: Working
+across file systems]</a></span>
+</p>
+
+<pre class="term"><code><span class="p">$</span> pwd
+<span class="o">/home/josh</span>
+<span class="p">$</span> ls /mnt/c
+<span class="o">'Program Files'   Users   Windows   ...</span></code></pre>
+
+<p class="aside">
+It goes the other way too: type <code>\\wsl$</code> into Windows File Explorer
+and you'll see the Linux side from Windows.
+</p>
+
+<p>
+So there is one prompt but two worlds, joined at <code>/mnt/</code>. Which
+world a file lives in is not cosmetic — it changes behaviour:
+</p>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Concern</th><th>Linux side (<code>/home/you</code>)</th><th>Windows side (<code>/mnt/c/...</code>)</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Case</td>
+      <td><code>Notes.txt</code> and <code>notes.txt</code> are two files</td>
+      <td>Windows treats them as one</td>
+    </tr>
+    <tr>
+      <td>Docker bind mounts</td>
+      <td>Fast; containers receive file-change events</td>
+      <td>Slow; file-change events are lost</td>
+    </tr>
+    <tr>
+      <td>Permissions</td>
+      <td>Real Linux ownership and modes</td>
+      <td>Synthesised — often everything looks executable</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="note">
+  <span class="label">The rule that will save you a week</span>
+  <p>
+    Keep the projects you'll build in <strong>inside the Linux filesystem</strong> —
+    <code>/home/you/code/...</code>, not <code>/mnt/c/Users/...</code>.
+    Docker's own documentation is blunt about it: mounting from
+    <code>/mnt/c</code> goes through a Plan 9 file share, so you lose the
+    performance <em>and</em> the <code>inotify</code> events that hot-reload and
+    file-watchers depend on.<span class="cite"> <a
+    href="https://docs.docker.com/desktop/features/wsl/best-practices/">[Docker:
+    WSL 2 best practices]</a></span> VS Code's WSL Remote mode is built for
+    exactly this: the editor UI runs on Windows, the files and tools stay on
+    Linux.
+  </p>
+</div>
+
+<h2>2 · How Bash finds a command</h2>
+
+<p>
+When you type <code>docker</code>, Bash does not search your computer. It walks
+a list of directories held in an environment variable called
+<code>PATH</code>, in order, and runs the first executable file with that name
+it finds. If it reaches the end of the list, you get
+<code>command not found</code>.<span class="cite"> <a
+href="https://www.gnu.org/software/bash/manual/bash.html#Command-Search-and-Execution">[GNU
+Bash manual: Command Search and Execution]</a></span>
+</p>
+
+<p>
+<code>PATH</code> is a single string of directories separated by colons. Split
+it onto separate lines to read it:
+</p>
+
+<pre class="term"><code><span class="p">$</span> echo $PATH | tr ':' '\n'
+<span class="o">/usr/local/sbin
+/usr/local/bin
+/usr/sbin
+/usr/bin
+/home/josh/.local/bin
+<span class="hl">/mnt/c/Windows/system32</span>
+<span class="hl">/mnt/c/Users/josh/AppData/Local/Programs/Microsoft VS Code/bin</span></span></code></pre>
+
+<p>
+Those last highlighted entries are the second surprise: WSL appends your
+<strong>Windows</strong> PATH onto your Linux one. That is why
+<code>notepad.exe</code> and <code>code</code> work from Bash — you are
+genuinely launching Windows programs from a Linux shell, and Microsoft
+documents them as first-class: you can pipe to and from them.<span
+class="cite"> <a
+href="https://learn.microsoft.com/en-us/windows/wsl/filesystems">[MS: Working
+across file systems]</a></span>
+</p>
+
+<p>
+Three commands let you interrogate this, and they are not interchangeable:
+</p>
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Command</th><th>Answers</th></tr></thead>
+  <tbody>
+    <tr><td><code>type ls</code></td><td>What <em>kind</em> of thing is this name? File, alias, shell builtin, or function.</td></tr>
+    <tr><td><code>type -a ls</code></td><td>Every match, in the order Bash would consider them. Shows shadowing.</td></tr>
+    <tr><td><code>which ls</code></td><td>Only the file on PATH. Blind to aliases, builtins, and functions.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<p>
+Prefer <code>type</code>. <code>which</code> will happily tell you
+<code>/usr/bin/ls</code> while the thing you actually ran was an alias with
+different flags — which is precisely the confusion you don't need while
+learning.
+</p>
+
+<h2>3 · Reading <code>command not found</code></h2>
+
+<p>
+It has exactly three causes, and <code>type</code> plus one guess tells you
+which:
+</p>
+
+<ol>
+  <li><strong>It isn't installed.</strong> The usual case for <code>docker</code>,
+    <code>claude</code>, <code>gh</code>, <code>jq</code>. Fix: install it —
+    usually <code>sudo apt install &lt;name&gt;</code>, sometimes a vendor
+    installer.</li>
+  <li><strong>It's installed, but not on <code>PATH</code>.</strong> Very common
+    right after an install script drops a binary in
+    <code>~/.local/bin</code>. Fix: open a new shell, or add the directory to
+    <code>PATH</code>.</li>
+  <li><strong>It doesn't exist in this world.</strong> <code>Get-ChildItem</code>,
+    <code>Select-String</code>, <code>curl -UseBasicParsing</code> — PowerShell
+    ideas with different Bash spellings. Fix: translate it. That's what the
+    <a href="../reference/powershell-to-bash.html">PowerShell → Bash
+    reference sheet</a> is for.</li>
+</ol>
+
+<p>
+Cause 2 is the one that feels like a bug and isn't. An installer prints
+"success", you type the command, and Bash says it doesn't exist — because your
+<em>current</em> shell read <code>PATH</code> when it started and hasn't
+re-read it. Claude Code's installer, for instance, places its launcher at
+<code>~/.local/bin/claude</code>.<span class="cite"> <a
+href="https://code.claude.com/docs/en/setup">[Claude Code: Advanced setup]</a></span>
+If <code>claude</code> isn't found straight after installing, the file almost
+certainly exists — check with <code>ls ~/.local/bin</code> before you reinstall
+anything.
+</p>
+
+<h2>4 · Do it now</h2>
+
+<p>
+Open your Ubuntu terminal and run these in order. The <em>expected</em> line
+under each is the point — where your machine disagrees, that's the interesting
+part, and worth bringing back to me.
+</p>
+
+<ul class="checklist" data-checklist="lesson-0001">
+  <li>
+    <input type="checkbox" id="t1">
+    <label for="t1">
+      <span class="task">Run <code>pwd</code></span>
+      <span class="expect">Expect: <code>/home/&lt;your-name&gt;</code> — not a <code>C:</code> path.</span>
+    </label>
+  </li>
+  <li>
+    <input type="checkbox" id="t2">
+    <label for="t2">
+      <span class="task">Run <code>ls /mnt/c</code></span>
+      <span class="expect">Expect: the top level of your Windows C: drive. This is the seam.</span>
+    </label>
+  </li>
+  <li>
+    <input type="checkbox" id="t3">
+    <label for="t3">
+      <span class="task">Run <code>echo $PATH | tr ':' '\n'</code></span>
+      <span class="expect">Expect: Linux directories first, then several <code>/mnt/c/...</code> entries at the bottom.</span>
+    </label>
+  </li>
+  <li>
+    <input type="checkbox" id="t4">
+    <label for="t4">
+      <span class="task">Run <code>type ls</code>, then <code>type cd</code>, then <code>type -a ls</code></span>
+      <span class="expect">Expect: an alias, a shell builtin, and then both the alias and <code>/usr/bin/ls</code>. Three different kinds of thing.</span>
+    </label>
+  </li>
+  <li>
+    <input type="checkbox" id="t5">
+    <label for="t5">
+      <span class="task">Run <code>type docker</code></span>
+      <span class="expect">Expect (for now): "not found". You haven't installed it yet — this is cause 1, and you just diagnosed it rather than guessed it.</span>
+    </label>
+  </li>
+  <li>
+    <input type="checkbox" id="t6">
+    <label for="t6">
+      <span class="task">Run <code>type explorer.exe</code>, then <code>explorer.exe .</code></span>
+      <span class="expect">Expect: a path under <code>/mnt/c/Windows/</code>, and then a Windows Explorer window opening on your current Linux directory. Both worlds, one prompt.</span>
+    </label>
+  </li>
+</ul>
+<p class="checklist-progress" data-checklist-progress="lesson-0001"></p>
+
+<h2>5 · Check yourself</h2>
+
+<p>
+Answer from memory before scrolling back up. Getting one wrong here is worth
+more than getting it right by re-reading — the retrieval is the part that
+sticks.
+</p>
+
+<div class="quiz" data-quiz>
+  <p class="quiz-q">Bash answers <code>docker: command not found</code>. What has it literally told you?</p>
+  <ul class="quiz-options">
+    <li><button data-correct data-why="PATH is a list of directories, searched in order. Reaching the end without a match is the entire meaning of this message — it says nothing about whether Docker exists on the machine.">Bash searched PATH and matched nothing</button></li>
+    <li><button data-why="A crash would produce output, or an exit code — not this message. Bash never got as far as running anything.">Docker was installed but exited quietly</button></li>
+    <li><button data-why="A permission problem reports permission denied. Bash checks that only after it has found a file to run.">Docker demands sudo before running here</button></li>
+    <li><button data-why="Builtins like cd are found before PATH is consulted, and they never produce this message.">Bash reserves that word for builtins</button></li>
+  </ul>
+  <p class="quiz-feedback" hidden></p>
+</div>
+
+<div class="quiz" data-quiz>
+  <p class="quiz-q">You're about to clone the repo you'll run in Docker and edit in VS Code. Where should it live?</p>
+  <ul class="quiz-options">
+    <li><button data-correct data-why="Bind mounts from the Linux filesystem are fast and propagate inotify events; mounts from /mnt/c go through a Plan 9 share and lose both. VS Code Remote is designed to work this way.">In /home/you, on the Linux filesystem</button></li>
+    <li><button data-why="This is the intuitive choice coming from Windows, and it is the documented slow path — you lose bind-mount performance and file-change events.">In /mnt/c/Users, on the Windows disk</button></li>
+    <li><button data-why="/tmp is on the Linux side and would be fast, but it is scratch space — expect it to be cleared, and never keep a repo there.">In /tmp, reachable quickly by both</button></li>
+    <li><button data-why="/opt is a convention for installed third-party software packages, not for your working repositories.">In /opt, where vendor software lives</button></li>
+  </ul>
+  <p class="quiz-feedback" hidden></p>
+</div>
+
+<div class="quiz" data-quiz>
+  <p class="quiz-q">Why does <code>notepad.exe</code> actually run when you type it at your Ubuntu prompt?</p>
+  <ul class="quiz-options">
+    <li><button data-correct data-why="WSL adds your Windows PATH onto the end of the Linux PATH, so Windows executables resolve through the ordinary lookup rule. You really are launching a Windows program from Bash.">WSL appends the Windows PATH entries</button></li>
+    <li><button data-why="Ubuntu ships no such program. If it did, it would be called something else and would not need the .exe suffix.">Ubuntu ships a notepad clone binary</button></li>
+    <li><button data-why="Bash emulates nothing. WSL's interop layer runs the genuine Windows binary; Bash simply found it on PATH like any other file.">Bash emulates Windows binaries by design</button></li>
+    <li><button data-why="No shell switch happens. The .exe is just part of the filename, and it is required — Linux has no implicit extensions.">The suffix quietly reopens PowerShell instead</button></li>
+  </ul>
+  <p class="quiz-feedback" hidden></p>
+</div>
+
+<div class="quiz" data-quiz>
+  <p class="quiz-q"><code>ll</code> works, and you want to know whether it's a file, an alias, or a shell builtin. Which command tells you?</p>
+  <ul class="quiz-options">
+    <li><button data-correct data-why="type reports the kind of thing a name is, covering aliases, builtins, functions and files — and type -a shows every match in lookup order.">type ll</button></li>
+    <li><button data-why="which only searches PATH for a file. On an alias it typically reports nothing, which reads as absence rather than as an answer.">which ll</button></li>
+    <li><button data-why="find searches the filesystem for files by name. It knows nothing about your shell's aliases or builtins.">find ll</button></li>
+    <li><button data-why="info opens documentation, and only for things that ship an info manual. It does not resolve names.">info ll</button></li>
+  </ul>
+  <p class="quiz-feedback" hidden></p>
+</div>
+
+<p class="quiz-score" data-quiz-score></p>
+
+<h2>6 · Take it further</h2>
+
+<p>
+<strong>Primary source for this lesson:</strong>
+<a href="https://learn.microsoft.com/en-us/windows/wsl/filesystems">Working
+across file systems</a> (Microsoft Learn). Ten minutes, and it is the single
+highest-trust document on the Windows/Linux seam. Read the sections on file
+storage and on interoperability.
+</p>
+
+<p>
+<strong>Keep beside you:</strong> the
+<a href="../reference/powershell-to-bash.html">PowerShell → Bash reference
+sheet</a> in this workspace. It prints on two pages and is built for exactly
+the moment your PowerShell reflex fires and nothing happens.
+</p>
+
+<p>
+<strong>If you want more depth:</strong> chapters 2–4 of
+<a href="https://linuxcommand.org/tlcl.php"><em>The Linux Command Line</em></a>
+(free PDF) cover navigation and the filesystem properly. Optional — the lesson
+stands without it.
+</p>
+
+<div class="note no-print">
+  <span class="label">Ask your teacher</span>
+  <p>
+    I'm your teacher for this, not just the author of the page. If any line
+    above was hand-wavy, if your terminal printed something different from the
+    expected output, or if you want to know <em>why</em> rather than
+    <em>what</em> — ask me. Pasting your real terminal output back to me is the
+    single most useful thing you can do; it tells me where to pitch Lesson 2.
+  </p>
+</div>
+
+<div class="next">
+  <p>
+    <strong>Next up:</strong> installing things properly — <code>apt</code>,
+    <code>sudo</code>, and what "the package manager owns this file" means
+    coming from a world of <code>.exe</code> installers. That is the lesson
+    that puts Docker and Claude Code on your machine.
+  </p>
+</div>
+
+<footer>
+  Lesson 1 · <a href="../MISSION.md">Mission</a> ·
+  <a href="../RESOURCES.md">Resources</a> ·
+  <a href="../reference/powershell-to-bash.html">Reference: PowerShell → Bash</a>
+</footer>
+
+<script src="../assets/quiz.js"></script>
+<script src="../assets/checklist.js"></script>
+</body>
+</html>
