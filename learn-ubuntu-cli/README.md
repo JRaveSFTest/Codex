@@ -6,16 +6,26 @@ the memory between them.
 
 ## Start here
 
-Open **[Lesson 1 · Where am I, and where do commands come from?](lessons/0001-where-am-i-and-where-do-commands-come-from.html)**
+No setup required — these are hosted, and private to you:
 
-From your Ubuntu terminal, in this directory:
+- **[Lesson 1 · Where am I, and where do commands come from?](https://claude.ai/code/artifact/52d566be-54a7-40a0-801b-92aeb57dfec7)**
+- **[Reference · PowerShell → Bash](https://claude.ai/code/artifact/591efc0b-3936-4e03-9ead-819046d51ea3)**
+
+### If you'd rather have the files locally
+
+You need `git clone` first — `git pull` only works inside a repository you
+already have. From your Ubuntu terminal:
 
 ```bash
+mkdir -p ~/code && cd ~/code
+git clone -b claude/ubuntu-command-line-tutorial-k2glm5 https://github.com/JRaveSFTest/Codex.git
+cd Codex/learn-ubuntu-cli
 explorer.exe lessons/0001-where-am-i-and-where-do-commands-come-from.html
 ```
 
-That hands the file to Windows, which opens it in your default browser. (Which
-is itself a small demonstration of Lesson 1.)
+That last line hands the file to Windows, which opens it in your default
+browser — itself a small demonstration of Lesson 1. Note the deliberate
+`~/code`: the Linux filesystem, not `/mnt/c`.
 
 ## What's here
 
@@ -28,6 +38,7 @@ is itself a small demonstration of Lesson 1.)
 | [`GLOSSARY.md`](GLOSSARY.md) | Terms, added once you can use them correctly. |
 | [`learning-records/`](learning-records/) | What you know so far, and what that implies for what to teach next. |
 | [`assets/`](assets/) | Shared stylesheet and interactive components. |
+| [`scripts/`](scripts/) | `build-standalone.mjs` flattens a lesson into one self-contained file for hosting. Output lands in `dist/` — generated, never hand-edited. |
 | [`NOTES.md`](NOTES.md) | Teaching preferences and open questions. |
 
 ## How to use it
